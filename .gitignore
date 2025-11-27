@@ -1,1 +1,7 @@
 llvm-build/
+__pycache__/
+objects/
+rand_instructions/objects/
+*.tar.gz
+McPAT_monolithic/
+
