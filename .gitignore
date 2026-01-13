@@ -4,4 +4,5 @@ objects/
 rand_instructions/objects/
 *.tar.gz
 McPAT_monolithic/
+.venv/
 

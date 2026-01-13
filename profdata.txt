@@ -1,0 +1,74 @@
+Counters:
+  gemm.c:print_array:
+    Hash: 0x011b11b29f491451
+    Counters: 4
+    Function count: 0
+    Block counts: [0, 0, 0]
+  polybench.c:rtclock:
+    Hash: 0x0000000000000018
+    Counters: 1
+    Function count: 0
+    Block counts: []
+  polybench_timer_stop:
+    Hash: 0x0000000000000000
+    Counters: 1
+    Function count: 0
+    Block counts: []
+  polybench_alloc_data:
+    Hash: 0x0000000000000018
+    Counters: 1
+    Function count: 3
+    Block counts: []
+  polybench_timer_start:
+    Hash: 0x0000000000000000
+    Counters: 1
+    Function count: 0
+    Block counts: []
+  polybench_free_data:
+    Hash: 0x0000000000000000
+    Counters: 1
+    Function count: 0
+    Block counts: []
+  polybench_prepare_instruments:
+    Hash: 0x0000000000000000
+    Counters: 1
+    Function count: 0
+    Block counts: []
+  gemm.c:kernel_gemm:
+    Hash: 0xf6dd30b901bf138a
+    Counters: 5
+    Function count: 1
+    Block counts: [1000, 1100000, 1200000, 1320000000]
+  gemm.c:init_array:
+    Hash: 0x6196a18efca1e454
+    Counters: 7
+    Function count: 1
+    Block counts: [1000, 1100000, 1000, 1200000, 1200, 1320000]
+  polybench_flush_cache:
+    Hash: 0x011b44d74a7524d1
+    Counters: 4
+    Function count: 0
+    Block counts: [0, 0, 0]
+  polybench_timer_print:
+    Hash: 0x0000000000000000
+    Counters: 1
+    Function count: 0
+    Block counts: []
+  polybench.c:xmalloc:
+    Hash: 0x000000028f692458
+    Counters: 4
+    Function count: 3
+    Block counts: [0, 3, 3]
+  main:
+    Hash: 0x000000a39c692458
+    Counters: 4
+    Function count: 1
+    Block counts: [0, 0, 0]
+Instrumentation level: Front-end
+Functions shown: 13
+Total functions: 13
+Maximum function count: 3
+Maximum internal block count: 1320000000
+Total number of blocks: 35
+Total count: 1325924215
+Temporal Profile Traces (samples=0 seen=0):

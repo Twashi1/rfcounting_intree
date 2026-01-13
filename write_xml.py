@@ -2,18 +2,14 @@
 import csv
 import xml.etree.ElementTree as ET
 import argparse
+import re
 
 # TODO: note vdd is not present by default for AlphaXXXXX
 # parameters that are not dependent on input file, but that we might want to change
-# TODO: just move to how we set the other things
-default_params = {
-    "./component[@id='system'][@name='system']/param[@name='temperature']": "380",
-    "./component[@id='system'][@name='system']/param[@name='core_tech_node']": "14", # NOTE: changed from 180
-    "./component[@id='system'][@name='system']/param[@name='target_core_clockrate']": "3400", # NOTE: changed from 1200
-}
 
-# TODO: just wrote this randomly, but write in some other things in this format, and set later instead of default_params
 DESIRED_CLOCK_RATE = 3400
+DESIRED_CORE_TECH = 14 # nm
+DESIRED_TEMP = 380 # k, increments of 10
 
 def load_csv_to_dict(path: str):
     data = []
@@ -41,120 +37,300 @@ def change_xml_property(tree, component_path: str, param_or_stat: str, name: str
 
     element.set("value", new_value) 
 
-def modify_xml(input_path: str, output_path: str, input_csv: str):
+class RequiredStats:
+    def __init__(self):
+        self.cycle_count = 0
+        self.idle_cycles = 0
+        self.busy_cycles = 0
+        self.total_instructions = 0
+        self.int_instructions = 0
+        self.float_instructions = 0
+        self.branch_instructions = 0
+        self.branch_mispredictions = 0
+        self.load_instructions = 0
+        self.store_instructions = 0
+        self.committed_instructions = 0
+        self.committed_float_instructions = 0
+        self.committed_int_instructions = 0
+        self.rob_reads = 0
+        self.rob_writes = 0
+        self.rename_reads = 0
+        self.rename_writes = 0
+        self.fp_rename_reads = 0
+        self.fp_rename_writes = 0
+        self.inst_window_wakeup_accesses = 0
+        self.inst_window_writes = 0
+        self.inst_window_reads = 0
+        self.fp_inst_window_wakeup_accesses = 0
+        self.fp_inst_window_writes = 0
+        self.fp_inst_window_reads = 0
+        self.int_regfile_reads = 0
+        self.int_regfile_writes = 0
+        self.float_regfile_reads = 0
+        self.float_regfile_writes = 0
+        self.function_calls = 0
+        self.context_switches = 0
+        self.mul_access = 0
+        self.fp_access = 0
+        self.ialu_access = 0
+        self.cdb_mul_accesses = 0
+        self.cdb_fp_accesses = 0
+        self.cdb_alu_accesses = 0
+        self.btb_reads = 0
+        self.btb_writes = 0
+
+    def _estimate_from_core_stats(self):
+        """
+        estimate the other stats from a couple important ones
+
+        not necessarily good estimates
+        """
+        self.branch_mispredictions = 0
+        self.idle_cycles = 0
+        self.busy_cycles = self.cycle_count
+        self.committed_instructions = self.total_instructions
+        self.committed_int_instructions = self.int_instructions
+        self.committed_float_instructions = self.float_instructions
+        self.rename_writes = self.total_instructions
+        self.rename_reads = self.total_instructions * 2
+        self.rob_reads = self.total_instructions
+        self.rob_writes = self.total_instructions
+        self.fp_rename_reads = self.float_instructions * 2
+        self.fp_rename_writes = self.float_instructions
+        self.inst_window_reads = self.total_instructions
+        self.inst_window_writes = self.total_instructions
+        self.inst_window_wakeup_accesses = self.inst_window_reads + self.inst_window_writes
+        self.fp_inst_window_reads = self.float_instructions
+        self.fp_inst_window_writes = self.float_instructions
+        self.fp_inst_window_wakeup_accesses = self.fp_inst_window_writes + self.fp_inst_window_reads
+        self.cdb_mul_accesses = self.mul_access
+        self.cdb_fp_accesses = self.fp_access
+        self.cdb_alu_accesses = self.ialu_access
+        self.btb_reads = self.total_instructions
+        self.btb_writes = 0
+
+    def load_csv_mbb_stats(self, csv_path, row_index=0):
+        data = load_csv_to_dict(csv_path)
+
+        mbb = data[row_index]
+
+        self.cycle_count = int(float(mbb["cycles"]))
+        self.total_instructions = int(float(mbb["instr_count"]))
+        self.int_instructions = int(float(mbb["int_instr_count"]))
+        self.float_instructions = int(float(mbb["float_instr_count"]))
+        self.branch_instructions = int(float(mbb["branch_instr_count"]))
+        self.load_instructions = int(float(mbb["loads"]))
+        self.store_instructions = int(float(mbb["stores"]))
+        self.int_regfile_reads = int(float(mbb["int_regfile_read"]))
+        self.int_regfile_writes = int(float(mbb["int_regfile_write"]))
+        self.float_regfile_reads = int(float(mbb["float_regfile_read"]))
+        self.float_regfile_writes = int(float(mbb["float_regfile_write"]))
+        self.function_calls = int(float(mbb["function_calls"]))
+        self.context_switches = int(float(mbb["context_switches"]))
+        self.mul_access = int(float(mbb["mul_access"]))
+        self.fp_access = int(float(mbb["fp_access"]))
+        self.ialu_access = int(float(mbb["ialu_access"]))
+
+        self._estimate_from_core_stats()
+
+    def load_csv_crit_path(self, csv_path, crit_path_index=0):
+        data = load_csv_to_dict(csv_path)
+
+        crit_path = data[crit_path_index]
+
+        self.cycle_count = int(float(crit_path["cycles"]))
+        self.total_instructions = int(float(crit_path["instrs"]))
+        self.int_instructions = int(float(crit_path["int_instr"]))
+        self.float_instructions = int(float(crit_path["float_instr"]))
+        self.branch_instructions = int(float(crit_path["branch_instr"]))
+        self.load_instructions = int(float(crit_path["loads"]))
+        self.store_instructions = int(float(crit_path["stores"]))
+        self.int_regfile_reads = int(float(crit_path["int_regfile_read"]))
+        self.int_regfile_writes = int(float(crit_path["int_regfile_write"]))
+        self.float_regfile_reads = int(float(crit_path["float_regfile_read"]))
+        self.float_regfile_writes = int(float(crit_path["float_regfile_write"]))
+        self.function_calls = int(float(crit_path["func_calls"]))
+        self.context_switches = int(float(crit_path["context_switches"]))
+        self.mul_access = int(float(crit_path["mul_access"]))
+        self.fp_access = int(float(crit_path["fp_access"]))
+        self.ialu_access = int(float(crit_path["int_alu_access"]))
+
+        self._estimate_from_core_stats()
+
+    def load_gem5_stats(self, input_path):
+        data = {}
+
+        with open(input_path, "r") as f:
+            # match non-whitespace, whitespace, non-whitespace
+            # so name, whitespace, value
+            pattern = re.compile(r"^(\S+)\s+(\S+)")
+            
+            for line in f.readlines():
+                # ignore --- begin/end simulation
+                if line.startswith("----"):
+                    continue
+
+                # empty line
+                if not line:
+                    continue
+
+                m = pattern.match(line)
+
+                if not m:
+                    continue
+
+                key, val = m.groups()
+                data[key] = val
+
+        # mapping from data to the variables
+        # TODO: a lot of these unsure of
+        self.cycle_count = int(data["board.processor.cores.core.numCycles"]) 
+        self.idle_cycles = int(data["board.processor.cores.core.idleCycles"])
+        self.busy_cycles = self.cycle_count - self.idle_cycles
+        self.total_instructions = int(data["board.processor.cores.core.commitStats0.numInsts"])
+        self.int_instructions = int(data["board.processor.cores.core.commitStats0.numIntInsts"])
+        self.float_instructions = int(data["board.processor.cores.core.commitStats0.numFpInsts"])
+        self.branch_instructions = int(data["board.processor.cores.core.executeStats0.numBranches"])
+        self.branch_mispredictions = int(data["board.processor.cores.core.commit.branchMispredicts"])
+        self.load_instructions = int(data["board.processor.cores.core.commitStats0.numLoadInsts"])
+        self.store_instructions = int(data["board.processor.cores.core.commitStats0.numStoreInsts"])
+        self.committed_instructions = self.total_instructions
+        self.committed_int_instructions = self.int_instructions
+        self.committed_float_instructions = self.float_instructions
+        self.rob_reads = int(data["board.processor.cores.core.rob.reads"])
+        self.rob_writes = int(data["board.processor.cores.core.rob.writes"])
+        self.rename_reads = int(data["board.processor.cores.core.rename.lookups"])
+        self.rename_writes = int(data["board.processor.cores.core.rename.renamedOperands"])
+        self.fp_rename_reads = int(data["board.processor.cores.core.rename.fpLookups"])
+        self.fp_rename_writes = self.fp_rename_reads // 2 #  NOTE: this is an estimation!
+        self.inst_window_reads = int(data["board.processor.cores.core.intInstQueueReads"]) + int(data["board.processor.cores.core.fpInstQueueReads"])
+        self.inst_window_writes = int(data["board.processor.cores.core.intInstQueueWrites"]) + int(data["board.processor.cores.core.fpInstQueueWrites"])
+        self.inst_window_wakeup_accesses = int(data["board.processor.cores.core.intInstQueueWakeupAccesses"]) + int(data["board.processor.cores.core.fpInstQueueWakeupAccesses"])
+        self.fp_inst_window_reads = int(data["board.processor.cores.core.fpInstQueueReads"])
+        self.fp_inst_window_writes = int(data["board.processor.cores.core.fpInstQueueWrites"])
+        self.fp_inst_window_wakeup_accesses = int(data["board.processor.cores.core.fpInstQueueWakeupAccesses"])
+
+        self.int_regfile_reads = int(data["board.processor.cores.core.executeStats0.numIntRegReads"])
+        self.int_regfile_writes = int(data["board.processor.cores.core.executeStats0.numIntRegWrites"])
+        self.float_regfile_reads = int(data["board.processor.cores.core.executeStats0.numFpRegReads"])
+        self.float_regfile_writes = int(data["board.processor.cores.core.executeStats0.numFpRegWrites"])
+        self.function_calls = int(data["board.processor.cores.core.commit.functionCalls"])
+        self.context_switches = int(data["board.processor.cores.core.commitStats0.committedControl::IsReturn"]) + int(data["board.processor.cores.core.commitStats0.committedControl::IsCall"])
+
+        # TODO: is this wrong?
+        self.mul_access = int(data["board.processor.cores.core.commitStats0.committedInstType::IntMult"]) + int(data["board.processor.cores.core.commitStats0.committedInstType::FloatMult"]) + int(data["board.processor.cores.core.commitStats0.committedInstType::SimdMult"]) + int(data["board.processor.cores.core.commitStats0.committedInstType::SimdFloatMult"])
+
+        self.fp_access = int(data["board.processor.cores.core.fpAluAccesses"])
+        self.ialu_access = int(data["board.processor.cores.core.intAluAccesses"])
+
+        self.cdb_alu_accesses = self.ialu_access
+        self.cdb_fp_accesses = self.fp_access
+        self.cdb_mul_accesses = self.mul_access
+
+        self.btb_reads = int(data["board.processor.cores.core.branchPred.BTBLookups"])
+        self.btb_writes = int(data["board.processor.cores.core.branchPred.BTBUpdates"])
+
+def modify_xml(input_path: str, output_path: str, input_stats: str, index: int) -> None:
     tree = ET.parse(input_path)
 
-    # set default
-    for path, value in default_params.items():
-        param = tree.find(path)
-
-        if param is None:
-            raise ValueError(f"Attempted to grab path {path} but failed!")
-
-        param.set("value", value)
-
-    # TODO: read from CritPath.csv and set other values
-    records = load_csv_to_dict(input_csv)
-    first_crit_path = records[0]
-
-    cycle_count = int(float(first_crit_path["cycles"]))
-    total_instructions = int(float(first_crit_path["instrs"]))
-    int_instructions  = int(float(first_crit_path["int_instr"]))
-    float_instructions = int(float(first_crit_path["float_instr"]))
-    branch_instructions = int(float(first_crit_path["branch_instr"]))
-    load_instructions = int(float(first_crit_path["loads"]))
-    store_instructions = int(float(first_crit_path["stores"]))
-    branch_instructions = int(float(first_crit_path["branch_instr"]))
-    int_regfile_reads = int(float(first_crit_path["int_regfile_read"]))
-    int_regfile_writes = int(float(first_crit_path["int_regfile_write"]))
-    float_regfile_reads = int(float(first_crit_path["float_regfile_read"]))
-    float_regfile_writes = int(float(first_crit_path["float_regfile_write"]))
-    function_calls = int(float(first_crit_path["func_calls"]))
-    context_switches = int(float(first_crit_path["context_switches"]))
-    mul_access = int(float(first_crit_path["mul_access"]))
-    fp_access = int(float(first_crit_path["fp_access"]))
-    ialu_access = int(float(first_crit_path["int_alu_access"]))
+    stats = RequiredStats()
     
-    change_xml_property(tree, "system", "stat", "total_cycles", str(cycle_count))
-    change_xml_property(tree, "system", "stat", "busy_cycles", str(cycle_count))
-    change_xml_property(tree, "system/system.core0", "param", "clock_rate", str(3400))
+    if input_stats.endswith(".csv"):
+        if input_stats.endswith("CritPath.csv", index):
+            stats.load_csv_crit_path(input_stats)
+        elif input_stats.endswith("MBB_stats.csv", index):
+            stats.load_csv_mbb_stats(input_stats)
+        else:
+            print("[WARN] unsure if input file is CritPath or MBB, assuming MBB")
+            stats.load_csv_mbb_stats(input_stats)
+    else:
+        stats.load_gem5_stats(input_stats)
+
+    change_xml_property(tree, "system", "param", "temperature", str(DESIRED_TEMP))
+    change_xml_property(tree, "system", "param", "core_tech_node", str(DESIRED_CORE_TECH))
+    change_xml_property(tree, "system", "param", "target_core_clockrate", str(DESIRED_CLOCK_RATE))
+    
+    change_xml_property(tree, "system", "stat", "total_cycles", str(stats.cycle_count))
+    change_xml_property(tree, "system", "stat", "busy_cycles", str(stats.cycle_count))
+    change_xml_property(tree, "system/system.core0", "param", "clock_rate", str(DESIRED_CLOCK_RATE))
     # TODO
-    change_xml_property(tree, "system/system.core0", "stat", "total_instructions", str(total_instructions))
-    change_xml_property(tree, "system/system.core0", "stat", "int_instructions", str(int_instructions))
-    change_xml_property(tree, "system/system.core0", "stat", "fp_instructions", str(float_instructions))
-    change_xml_property(tree, "system/system.core0", "stat", "branch_instructions", str(branch_instructions))
-    change_xml_property(tree, "system/system.core0", "stat", "branch_mispredictions", str(0)) # TODO: assume some % of branches miss
-    change_xml_property(tree, "system/system.core0", "stat", "load_instructions", str(load_instructions))
-    change_xml_property(tree, "system/system.core0", "stat", "store_instructions", str(store_instructions))
-    change_xml_property(tree, "system/system.core0", "stat", "committed_instructions", str(total_instructions))
-    change_xml_property(tree, "system/system.core0", "stat", "committed_int_instructions", str(int_instructions))
-    change_xml_property(tree, "system/system.core0", "stat", "committed_fp_instructions", str(float_instructions))
-    change_xml_property(tree, "system/system.core0", "stat", "total_cycles", str(cycle_count))
-    change_xml_property(tree, "system/system.core0", "stat", "busy_cycles", str(cycle_count))
-    change_xml_property(tree, "system/system.core0", "stat", "ROB_reads", str(total_instructions))
-    change_xml_property(tree, "system/system.core0", "stat", "ROB_writes", str(total_instructions))
-    change_xml_property(tree, "system/system.core0", "stat", "rename_reads", str(total_instructions * 2))
-    change_xml_property(tree, "system/system.core0", "stat", "rename_writes", str(total_instructions))
+    change_xml_property(tree, "system/system.core0", "stat", "total_instructions", str(stats.total_instructions))
+    change_xml_property(tree, "system/system.core0", "stat", "int_instructions", str(stats.int_instructions))
+    change_xml_property(tree, "system/system.core0", "stat", "fp_instructions", str(stats.float_instructions))
+    change_xml_property(tree, "system/system.core0", "stat", "branch_instructions", str(stats.branch_instructions))
+    change_xml_property(tree, "system/system.core0", "stat", "branch_mispredictions", str(stats.branch_mispredictions)) # TODO: assume some % of branches miss
+    change_xml_property(tree, "system/system.core0", "stat", "load_instructions", str(stats.load_instructions))
+    change_xml_property(tree, "system/system.core0", "stat", "store_instructions", str(stats.store_instructions))
+    change_xml_property(tree, "system/system.core0", "stat", "committed_instructions", str(stats.committed_instructions))
+    change_xml_property(tree, "system/system.core0", "stat", "committed_int_instructions", str(stats.committed_int_instructions))
+    change_xml_property(tree, "system/system.core0", "stat", "committed_fp_instructions", str(stats.committed_float_instructions))
+    change_xml_property(tree, "system/system.core0", "stat", "total_cycles", str(stats.cycle_count))
+    change_xml_property(tree, "system/system.core0", "stat", "idle_cycles", str(stats.idle_cycles))
+    change_xml_property(tree, "system/system.core0", "stat", "busy_cycles", str(stats.busy_cycles))
+    change_xml_property(tree, "system/system.core0", "stat", "ROB_reads", str(stats.rob_reads))
+    change_xml_property(tree, "system/system.core0", "stat", "ROB_writes", str(stats.rob_writes))
+    change_xml_property(tree, "system/system.core0", "stat", "rename_reads", str(stats.rename_reads))
+    change_xml_property(tree, "system/system.core0", "stat", "rename_writes", str(stats.rename_writes))
     # TODO: unsure about below
-    change_xml_property(tree, "system/system.core0", "stat", "fp_rename_reads", str(float_instructions * 2))
-    change_xml_property(tree, "system/system.core0", "stat", "fp_rename_writes", str(float_instructions))
+    change_xml_property(tree, "system/system.core0", "stat", "fp_rename_reads", str(stats.fp_rename_reads))
+    change_xml_property(tree, "system/system.core0", "stat", "fp_rename_writes", str(stats.fp_rename_writes))
 
-    change_xml_property(tree, "system/system.core0", "stat", "inst_window_reads", str(total_instructions))
-    change_xml_property(tree, "system/system.core0", "stat", "inst_window_writes", str(total_instructions))
-    change_xml_property(tree, "system/system.core0", "stat", "inst_window_wakeup_accesses", str(total_instructions * 2))
+    change_xml_property(tree, "system/system.core0", "stat", "inst_window_reads", str(stats.inst_window_reads))
+    change_xml_property(tree, "system/system.core0", "stat", "inst_window_writes", str(stats.inst_window_writes))
+    change_xml_property(tree, "system/system.core0", "stat", "inst_window_wakeup_accesses", str(stats.inst_window_wakeup_accesses))
     # TODO: unsure about below
-    change_xml_property(tree, "system/system.core0", "stat", "fp_inst_window_reads", str(float_instructions))
-    change_xml_property(tree, "system/system.core0", "stat", "fp_inst_window_writes", str(float_instructions))
-    change_xml_property(tree, "system/system.core0", "stat", "fp_inst_window_wakeup_accesses", str(float_instructions * 2))
+    change_xml_property(tree, "system/system.core0", "stat", "fp_inst_window_reads", str(stats.fp_inst_window_reads))
+    change_xml_property(tree, "system/system.core0", "stat", "fp_inst_window_writes", str(stats.fp_inst_window_writes))
+    change_xml_property(tree, "system/system.core0", "stat", "fp_inst_window_wakeup_accesses", str(stats.fp_inst_window_wakeup_accesses))
 
-    change_xml_property(tree, "system/system.core0", "stat", "int_regfile_reads", str(int_regfile_reads))
-    change_xml_property(tree, "system/system.core0", "stat", "float_regfile_reads", str(float_regfile_reads))
-    change_xml_property(tree, "system/system.core0", "stat", "int_regfile_writes", str(int_regfile_writes))
-    change_xml_property(tree, "system/system.core0", "stat", "float_regfile_writes", str(float_regfile_writes))
-    change_xml_property(tree, "system/system.core0", "stat", "function_calls", str(function_calls))
-    change_xml_property(tree, "system/system.core0", "stat", "context_switches", str(context_switches))
-    change_xml_property(tree, "system/system.core0", "stat", "ialu_accesses", str(ialu_access))
-    change_xml_property(tree, "system/system.core0", "stat", "fpu_accesses", str(fp_access))
-    change_xml_property(tree, "system/system.core0", "stat", "mul_accesses", str(mul_access))
-    change_xml_property(tree, "system/system.core0", "stat", "cdb_alu_accesses", str(ialu_access)) # TODO: unsure
-    change_xml_property(tree, "system/system.core0", "stat", "cdb_fpu_accesses", str(fp_access))
-    change_xml_property(tree, "system/system.core0", "stat", "cdb_mul_accesses", str(mul_access))
+    change_xml_property(tree, "system/system.core0", "stat", "int_regfile_reads", str(stats.int_regfile_reads))
+    change_xml_property(tree, "system/system.core0", "stat", "float_regfile_reads", str(stats.float_regfile_reads))
+    change_xml_property(tree, "system/system.core0", "stat", "int_regfile_writes", str(stats.int_regfile_writes))
+    change_xml_property(tree, "system/system.core0", "stat", "float_regfile_writes", str(stats.float_regfile_writes))
+    change_xml_property(tree, "system/system.core0", "stat", "function_calls", str(stats.function_calls))
+    change_xml_property(tree, "system/system.core0", "stat", "context_switches", str(stats.context_switches))
+    change_xml_property(tree, "system/system.core0", "stat", "ialu_accesses", str(stats.ialu_access))
+    change_xml_property(tree, "system/system.core0", "stat", "fpu_accesses", str(stats.fp_access))
+    change_xml_property(tree, "system/system.core0", "stat", "mul_accesses", str(stats.mul_access))
+    change_xml_property(tree, "system/system.core0", "stat", "cdb_alu_accesses", str(stats.cdb_alu_accesses))
+    change_xml_property(tree, "system/system.core0", "stat", "cdb_fpu_accesses", str(stats.cdb_fp_accesses))
+    change_xml_property(tree, "system/system.core0", "stat", "cdb_mul_accesses", str(stats.cdb_mul_accesses))
 
     # TODO: missing stuff???
-    change_xml_property(tree, "system/system.core0/system.core0.itlb", "stat", "total_accesses", str(total_instructions // 2)) # TODO: unsure
+    change_xml_property(tree, "system/system.core0/system.core0.itlb", "stat", "total_accesses", str(stats.total_instructions // 2)) # TODO: unsure
     change_xml_property(tree, "system/system.core0/system.core0.itlb", "stat", "total_misses", str(4)) # TODO: some small default
     change_xml_property(tree, "system/system.core0/system.core0.itlb", "stat", "conflicts", str(0))
     
-    change_xml_property(tree, "system/system.core0/system.core0.icache", "stat", "read_accesses", str(total_instructions // 2)) # TODO: unsure
+    change_xml_property(tree, "system/system.core0/system.core0.icache", "stat", "read_accesses", str(stats.total_instructions // 2)) # TODO: unsure
     change_xml_property(tree, "system/system.core0/system.core0.icache", "stat", "read_misses", str(0)) # TODO: some small default
     change_xml_property(tree, "system/system.core0/system.core0.icache", "stat", "conflicts", str(0))
     
-    change_xml_property(tree, "system/system.core0/system.core0.dtlb", "stat", "total_accesses", str(total_instructions)) # TODO: unsure
-    change_xml_property(tree, "system/system.core0/system.core0.dtlb", "stat", "total_misses", str(3400))
+    change_xml_property(tree, "system/system.core0/system.core0.dtlb", "stat", "total_accesses", str(stats.total_instructions)) # TODO: unsure
+    change_xml_property(tree, "system/system.core0/system.core0.dtlb", "stat", "total_misses", str(0))
 
-    change_xml_property(tree, "system/system.core0/system.core0.dcache", "stat", "read_accesses", str(total_instructions * 2)) # TODO: unsure
+    change_xml_property(tree, "system/system.core0/system.core0.dcache", "stat", "read_accesses", str(stats.total_instructions * 2)) # TODO: unsure
     change_xml_property(tree, "system/system.core0/system.core0.dcache", "stat", "write_accesses", str(0)) # TODO: unsure
     change_xml_property(tree, "system/system.core0/system.core0.dcache", "stat", "read_misses", str(0))
     change_xml_property(tree, "system/system.core0/system.core0.dcache", "stat", "write_misses", str(0))
 
-    change_xml_property(tree, "system/system.core0/system.core0.BTB", "stat", "read_accesses", str(total_instructions)) # TODO: unsure
-    change_xml_property(tree, "system/system.core0/system.core0.BTB", "stat", "write_accesses", str(0))
+    change_xml_property(tree, "system/system.core0/system.core0.BTB", "stat", "read_accesses", str(stats.btb_reads))
+    change_xml_property(tree, "system/system.core0/system.core0.BTB", "stat", "write_accesses", str(stats.btb_writes))
     
-    change_xml_property(tree, "system/system.L1Directory0", "param", "clockrate", str(3400))
-    change_xml_property(tree, "system/system.L1Directory0", "stat", "read_accesses", str(total_instructions * 2)) # TODO: unsure
+    change_xml_property(tree, "system/system.L1Directory0", "param", "clockrate", str(DESIRED_CLOCK_RATE))
+    change_xml_property(tree, "system/system.L1Directory0", "stat", "read_accesses", str(stats.total_instructions * 2)) # TODO: unsure
     change_xml_property(tree, "system/system.L1Directory0", "stat", "write_accesses", str(0)) # TODO: unsure
     change_xml_property(tree, "system/system.L1Directory0", "stat", "read_misses", str(0))
     change_xml_property(tree, "system/system.L1Directory0", "stat", "write_misses", str(0))
     change_xml_property(tree, "system/system.L1Directory0", "stat", "conflicts", str(0))
     
     # TODO: all unsure
-    change_xml_property(tree, "system/system.L2Directory0", "param", "clockrate", str(3400))
+    change_xml_property(tree, "system/system.L2Directory0", "param", "clockrate", str(DESIRED_CLOCK_RATE))
     change_xml_property(tree, "system/system.L2Directory0", "stat", "read_accesses", str(0))
     change_xml_property(tree, "system/system.L2Directory0", "stat", "write_accesses", str(0))
     change_xml_property(tree, "system/system.L2Directory0", "stat", "read_misses", str(0))
     change_xml_property(tree, "system/system.L2Directory0", "stat", "write_misses", str(0))
     
-    change_xml_property(tree, "system/system.L20", "param", "clockrate", str(3400))
+    change_xml_property(tree, "system/system.L20", "param", "clockrate", str(DESIRED_CLOCK_RATE))
     change_xml_property(tree, "system/system.L20", "stat", "read_accesses", str(0))
     change_xml_property(tree, "system/system.L20", "stat", "write_accesses", str(0))
     change_xml_property(tree, "system/system.L20", "stat", "read_misses", str(0))
@@ -165,23 +341,24 @@ def modify_xml(input_path: str, output_path: str, input_csv: str):
     change_xml_property(tree, "system/system.L30", "stat", "read_misses", str(0))
     change_xml_property(tree, "system/system.L30", "stat", "write_misses", str(0))
     
-    change_xml_property(tree, "system/system.NoC0", "stat", "total_accesses", str(total_instructions // 4)) # TODO: unsure
-    change_xml_property(tree, "system/system.NoC0", "param", "clockrate", str(3400))
+    change_xml_property(tree, "system/system.NoC0", "stat", "total_accesses", str(stats.total_instructions // 4)) # TODO: unsure
+    change_xml_property(tree, "system/system.NoC0", "param", "clockrate", str(DESIRED_CLOCK_RATE))
 
-    change_xml_property(tree, "system/system.mc", "stat", "memory_accesses", str(total_instructions // 10)) # TODO: unsure
-    change_xml_property(tree, "system/system.mc", "stat", "memory_reads", str(total_instructions // 20))
-    change_xml_property(tree, "system/system.mc", "stat", "memory_writes", str(total_instructions // 20))
+    change_xml_property(tree, "system/system.mc", "stat", "memory_accesses", str(stats.total_instructions // 10)) # TODO: unsure
+    change_xml_property(tree, "system/system.mc", "stat", "memory_reads", str(stats.total_instructions // 20))
+    change_xml_property(tree, "system/system.mc", "stat", "memory_writes", str(stats.total_instructions // 20))
     
     tree.write(output_path, encoding="utf-8", xml_declaration=True)
 
 def main():
     parser = argparse.ArgumentParser(description="Create xml file based on Alpha given some data.")
-    parser.add_argument("csv_file", help="Path to csv file")
-    parser.add_argument("input_xml", help="Path to input Alpha??? file")
+    parser.add_argument("input_stats", help="Path to csv file CritPath.csv/MBB_stats.csv/gem5 output file stats.txt")
+    parser.add_argument("input_xml", help="Path to input XML (expecting Alpha21364.xml) file")
     parser.add_argument("output_xml", help="Name of output XML file")
+    parser.add_argument("index", help="(Optional) Which basic block or critical path to read", type=int, default=0)
     args = parser.parse_args()
 
-    modify_xml(args.input_xml, args.output_xml, args.csv_file)
+    modify_xml(args.input_xml, args.output_xml, args.input_stats, args.index)
 
 if __name__ == "__main__":
     main()

@@ -72,11 +72,11 @@ config_int = {
 }
 
 config_float = {
-    "main_type": "double",
+    "main_type": "float",
     "second_type": "float",
-    "main_init_literal": "0.0",
+    "main_init_literal": "0.0f",
     "second_init_literal": "0.0f",
-    "main_random_literal": lambda: rand_float_literal(64),
+    "main_random_literal": lambda: rand_float_literal(32),
     "second_random_literal": lambda: rand_float_literal(32),
     "rand_imm": lambda: random.random()
 }

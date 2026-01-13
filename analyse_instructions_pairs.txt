@@ -1,0 +1,4 @@
+AlphaRandFloats.xml mcpat_out/rand_floats.txt
+AlphaRandInts.xml mcpat_out/rand_ints.txt
+AlphaFloatBig.xml mcpat_out/big_floats.txt
+AlphaIntBig.xml mcpat_out/big_ints.txt
