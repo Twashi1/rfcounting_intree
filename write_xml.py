@@ -3,6 +3,9 @@ import csv
 import xml.etree.ElementTree as ET
 import argparse
 import re
+import copy
+# not really required, but useless for some csv processing
+import pandas as pd
 
 # TODO: note vdd is not present by default for AlphaXXXXX
 # parameters that are not dependent on input file, but that we might want to change
@@ -21,6 +24,34 @@ def load_csv_to_dict(path: str):
             data.append(row)
 
     return data
+
+def load_multipart_csv(path: str, delim=",") -> list:
+    part = {} # dict of arrays, one entry for each row, arranged like a dataframe
+    data = []
+    header = ""
+    cols = []
+
+    with open(path, newline="", encoding="utf-8") as f:
+        for line in f.readlines():
+            line = line.rstrip("\n")
+
+            if (not header) or (line == header and header):
+                header = line
+                data.append(copy.deepcopy(part))
+                cols = header.split(delim)
+                part = {x: [] for x in cols}
+                continue
+
+            fields = line.split(delim)
+
+            assert len(cols) == len(fields), f"Line: {line} was invalid, expected {len(cols)} columns, but got {len(fields)}"
+
+            for col, field in zip(cols, fields):
+                part[col].append(field) 
+    
+    data.append(copy.deepcopy(part))
+
+    return [i for i in data if len(i) > 0]
 
 def change_xml_property(tree, component_path: str, param_or_stat: str, name: str, new_value: str):
     xpath = "."
@@ -110,6 +141,7 @@ class RequiredStats:
         self.btb_writes = 0
 
     def load_csv_mbb_stats(self, csv_path, row_index=0):
+        # TODO: use load_multipart_csv
         data = load_csv_to_dict(csv_path)
 
         mbb = data[row_index]
@@ -133,10 +165,61 @@ class RequiredStats:
 
         self._estimate_from_core_stats()
 
-    def load_csv_crit_path(self, csv_path, crit_path_index=0):
-        data = load_csv_to_dict(csv_path)
+    def load_sum_csv_mbb_stats(self, csv_path, module_index=0):
+        data = load_multipart_csv(csv_path)
+        
+        module_data = data[module_index]
+        
+        module_df = pd.DataFrame(module_data)
+        module_df = module_df.astype({
+            "cycles": float,
+            "instr_count": float,
+            "int_instr_count": float,
+            "float_instr_count": float,
+            "branch_instr_count": float,
+            "loads": float,
+            "stores": float,
+            "int_regfile_read": float,
+            "int_regfile_write": float,
+            "float_regfile_read": float,
+            "float_regfile_write": float,
+            "function_calls": float,
+            "context_switches": float,
+            "mul_access": float,
+            "fp_access": float,
+            "ialu_access": float
+        })
 
-        crit_path = data[crit_path_index]
+        # Note we don't account for function frequency when calculating
+        # execution frequency, we should be using GlobalFreq but
+        # GlobalFreq has some high base multiplier we don't account for
+        col_sums = module_df.sum()
+
+        self.cycle_count = int(col_sums["cycles"])
+        self.total_instructions = int(col_sums["instr_count"])
+        self.int_instructions = int(col_sums["int_instr_count"])
+        self.float_instructions = int(col_sums["float_instr_count"])
+        self.branch_instructions = int(col_sums["branch_instr_count"])
+        self.load_instructions = int(col_sums["loads"])
+        self.store_instructions = int(col_sums["stores"])
+        self.int_regfile_reads = int(col_sums["int_regfile_read"])
+        self.int_regfile_writes = int(col_sums["int_regfile_write"])
+        self.float_regfile_reads = int(col_sums["float_regfile_read"])
+        self.float_regfile_writes = int(col_sums["float_regfile_write"])
+        self.function_calls = int(col_sums["function_calls"])
+        self.context_switches = int(col_sums["context_switches"])
+        self.mul_access = int(col_sums["mul_access"])
+        self.fp_access = int(col_sums["fp_access"])
+        self.ialu_access = int(col_sums["ialu_access"])
+        
+        self._estimate_from_core_stats()
+
+    def load_csv_crit_path(self, csv_path, module_index=0, crit_path_index=0):
+        # NOTE: function is a bit useless, needing this arbitrary module and crit path index
+        data = load_multipart_csv(csv_path)
+
+        crit_paths = data[module_index]
+        crit_path = crit_paths[crit_path_index]
 
         self.cycle_count = int(float(crit_path["cycles"]))
         self.total_instructions = int(float(crit_path["instrs"]))

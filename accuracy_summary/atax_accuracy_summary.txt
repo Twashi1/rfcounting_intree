@@ -1,0 +1,6 @@
+MBB_stats.csv gem5_outs/outdir_poly_atax/stats.txt
+Gem5 gm5_analysis.cycle_count=71592430 and LLVM static_analysis.cycle_count=124898186
+Gem5 gm5_analysis.total_instructions=73003352 and LLVM static_analysis.total_instructions=35335696
+Gem5 gm5_analysis.load_instructions=15996131 and LLVM static_analysis.load_instructions=5964171
+Gem5 gm5_analysis.store_instructions=11992259 and LLVM static_analysis.store_instructions=3979159
+Cycle PE: -74.46%, Instr: 51.60%, Loads: 62.71%, Stores: 66.82%

@@ -12,9 +12,8 @@ def get_stats(crit_path_stats, gm5_stats):
     static_analysis = write_xml.RequiredStats()
     gm5_analysis = write_xml.RequiredStats()
 
-    # TODO: note loading the 3rd critical path because this is usually the profile guided one
-    # csv is very badly formatted so 4 gives us the 3rd path
-    static_analysis.load_csv_crit_path(crit_path_stats, 4)
+    # Module index 2 (should be the PGO run)
+    static_analysis.load_sum_csv_mbb_stats(crit_path_stats, 2)
     gm5_analysis.load_gem5_stats(gm5_stats)
 
     pe = lambda t, p: (t - p) / t * 100.0
@@ -35,7 +34,7 @@ def get_stats(crit_path_stats, gm5_stats):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create xml file based on Alpha given some data.")
-    parser.add_argument("crit_path_stats", help="Path to CritPath.csv")
+    parser.add_argument("crit_path_stats", help="Path to MBB_stats.csv")
     parser.add_argument("gm5_stats", help="Path to stats.txt of the gem5 output")
     args = parser.parse_args()
 
