@@ -10,6 +10,7 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <set>
 #include <map>
 #include <vector>
 
@@ -117,6 +118,8 @@ struct ExtPathCollector {
 
   // list of block ids of disjoint subgraphs
   std::vector<std::vector<unsigned>> DisjointSubgraphBlocks;
+  std::vector<std::vector<unsigned>> PotentialStartBlocks;
+  std::vector<std::vector<unsigned>> PotentialExitBlocks;
 
   void addMachineFunctionEdge(const std::string &Caller,
                               const std::string &Callee);

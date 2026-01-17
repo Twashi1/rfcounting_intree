@@ -27,9 +27,6 @@
 // TODO: use numeric limits instead
 #include <cfloat>
 
-// TODO: problem is in critical path builder not including some functions?
-// maybe its actually intended behaviour though, the critical path has to choose between init_array and kernel_gemm
-
 #define DEBUG_TYPE "reg-access-prera"
 
 using namespace llvm;
@@ -335,6 +332,8 @@ void ExtPathCollector::buildCriticalPath() {
   //    - add entire sub-tree
   std::vector<std::vector<int>> AllSubgraphs;
   std::vector<std::vector<int>> SCCsInSubgraph;
+  std::vector<int> SubgraphRoots;
+  std::vector<std::vector<int>> SubgraphLeaves;
 
   // While all nodes are not in a sub-graph
   while (std::any_of(InSubgraph.begin(), InSubgraph.end(), [](int i){ return i == 0; })) {
@@ -357,6 +356,9 @@ void ExtPathCollector::buildCriticalPath() {
     std::vector<int> SCCStack = {StartSCC};
     std::vector<int> Predecessors = std::vector<int>(CompCount, -1);
     std::vector<int> SCCs;
+    std::vector<int> Leaves;
+
+    SubgraphRoots.push_back(StartSCC);
 
     while (!SCCStack.empty()) {
       // Get successors
@@ -368,6 +370,8 @@ void ExtPathCollector::buildCriticalPath() {
       CurrentWeight += CompWeight[Current];
 
       if (CurrentWeight >= SUBGRAPH_THRESHOLD) {
+        Leaves.push_back(Current);
+
         break;
       }
 
@@ -386,7 +390,11 @@ void ExtPathCollector::buildCriticalPath() {
         BestSuccessorWeight = Weight;
       }
 
-      if (BestSuccessor == -1) continue;
+      if (BestSuccessor == -1) {
+        Leaves.push_back(Current);
+
+        continue;
+      }
 
       // We add this successor
       SCCStack.push_back(BestSuccessor);
@@ -395,6 +403,7 @@ void ExtPathCollector::buildCriticalPath() {
 
     AllSubgraphs.push_back(Predecessors);
     SCCsInSubgraph.push_back(SCCs);
+    SubgraphLeaves.push_back(Leaves);
   }
 
   LLVM_DEBUG(dbgs() << "Split DAG into subgraphs\n");
@@ -417,9 +426,55 @@ void ExtPathCollector::buildCriticalPath() {
     SCCToMBBList[SCC].push_back(i);
   }
 
-  for (const std::vector<int>& SCCs : SCCsInSubgraph) {
+  for (int i = 0; i < SCCsInSubgraph.size(); i++) {
+    const std::vector<int>& SCCs = SCCsInSubgraph[i];
+
     // TODO: enforce uniqueness
     std::vector<unsigned> SubgraphBlocksSet;
+    std::vector<unsigned> StartBlocks;
+    std::vector<unsigned> EndBlocks;
+    // Index by SCC 
+    std::vector<uint8_t> IsSCCInSubgraph = std::vector<uint8_t>(CompCount, 0);
+    int StartSCC = SubgraphRoots[i];
+
+    for (int SCC : SCCs) {
+      IsSCCInSubgraph[SCC] = 1;
+    }
+
+    // TODO: really expensive and tedious, will not scale well for large
+    //  graphs, can be made many times asymptotically faster
+    
+    // Iterate every basic block
+    //  if that basic block leads into our SCC
+    //  find the basic block within our SCC that has been lead into
+    //  mark that basic block as an entry block
+    //  
+    //  if that basic block is in our SCC
+    //  if that basic block leads to an SCC outside the subgraph
+    //  then mark the basic block it has lead to, as the exit block
+    for (unsigned BlockID = 0; BlockID < N; BlockID++) {
+      int BlockSCC = CompIDs[BlockID];
+
+      for (unsigned Successor : GlobalAdjacencyList[BlockID]) {
+        int SCCOfSuccessor = CompIDs[Successor];
+
+        if (IsSCCInSubgraph[BlockSCC] && !IsSCCInSubgraph[SCCOfSuccessor]) {
+          // We are in the subgraph, but our child is not
+          // thus we're an exit block
+          // We can insert an instruction at the end of the exit block
+          // but inserting instructions at the end of a block is non-trivial
+          // TODO: consider inserting instruction at end of block whenever possible
+          // So instead, we have to consider every child and add an exit at that child
+          EndBlocks.push_back(Successor); 
+        }
+
+        if (!IsSCCInSubgraph[BlockSCC] && SCCOfSuccessor == StartSCC) {
+          // There is some outside block, that links into our starter component
+          // thus Successor block is a start point
+          StartBlocks.push_back(Successor);
+        }
+      }
+    }
 
     for (int SCC : SCCs) {
       std::vector<unsigned> MBBs = SCCToMBBList[SCC];
@@ -428,6 +483,8 @@ void ExtPathCollector::buildCriticalPath() {
     }
 
     SubgraphMBBList.push_back(SubgraphBlocksSet);
+    PotentialStartBlocks.push_back(StartBlocks);
+    PotentialExitBlocks.push_back(EndBlocks);
   }
 
   DisjointSubgraphBlocks = SubgraphMBBList;
@@ -520,12 +577,16 @@ void ExtPathCollector::outputCriticalPath() {
     return;
   }
 
+  raw_fd_ostream BlockOutFile("PathBlocks.csv", EC, sys::fs::OF_Append);
+
   OutFile << "module_name,start_func,start_block,end_func,end_block,cycles,"
              "writes,reads,"
              "loads,stores,instrs,global_freq,est_time,int_instr,float_instr,"
              "branch_instr,loadstore_instr,func_calls,context_switches,mul_"
              "access,fp_access,int_alu_access,int_regfile_read,float_regfile_"
              "read,int_regfile_write,float_regfile_write\n";
+
+  BlockOutFile << "module_name,path_index,func,block,is_entry,is_exit,cycles,writes,reads,loads,stores,instrs,global_freq,int_instr,float_instr,branch_instr,loadstore_instr,func_calls,context_switches,mul_access,fp_access,int_alu_access,int_regfile_read,float_regfile_read,int_regfile_write,float_regfile_write\n";
 
   // TODO: need to output the full MBB list somewhere
   // TODO: need to ensure we apply DVS to the correct block, start_func/start_block pair should
@@ -535,6 +596,13 @@ void ExtPathCollector::outputCriticalPath() {
 
   for (int i = 0; i < DisjointSubgraphBlocks.size(); i++) {
     const std::vector<unsigned>& MBBSubgraph = DisjointSubgraphBlocks[i];
+    const std::vector<unsigned>& StartBlocks = PotentialStartBlocks[i];
+    // NOTE: we have the exit blocks for a particular subgraph
+    //  but where do we print them?
+    const std::vector<unsigned>& EndBlocks = PotentialExitBlocks[i];
+
+    std::set<unsigned> StartSet = std::set<unsigned>(StartBlocks.begin(), StartBlocks.end());
+    std::set<unsigned> EndSet = std::set<unsigned>(EndBlocks.begin(), EndBlocks.end());
 
     // Note these really aren't in any particular order
     // only first block really counts
@@ -573,7 +641,16 @@ void ExtPathCollector::outputCriticalPath() {
     std::string EndBlockFunc = "";
     std::string ModuleName = "";
 
+    // TODO: instead of iterating all blocks in the subgraph
+    //  iterate all start/exit blocks and just print those
+    //  some of those blocks won't technically be in the subgraph, since they'll
+    //  be the exit blocks
+    // TODO: some exit blocks of subgraph A might be start/exit blocks of subgraph B
+    //  we will need duplicate entries...
     for (int j = 0; j < MBBSubgraph.size(); j++) {
+      bool IsEntryBlock = false;
+      bool IsExitBlock = false;
+
       bool IsFirstBlock = (j == 0);
       bool IsLastBlock = (j == MBBSubgraph.size() - 1);
 
@@ -582,30 +659,69 @@ void ExtPathCollector::outputCriticalPath() {
       ExtBBStats BlockStat = BlockStats[Block];
       
       LLVM_DEBUG(dbgs() << "Block " << BlockStat.Name << " from function " << BlockStat.FunctionName << ", is being parsed in path index: " << i << "\n");
+
+      // TODO: just make these into one-liners
+      if (StartSet.find(Block) != StartSet.end()) {
+        IsEntryBlock = true;
+      }
+
+      if (EndSet.find(Block) != EndSet.end()) {
+        IsExitBlock = true;
+      }
+
+      if (!IsEntryBlock && !IsExitBlock) {
+        // TODO: can continue here if we want
+        // this would skip printing blocks that are neither start nor entry blocks
+        // but just for the sake of a full output, we keep them
+      }
+
+      // Frequency-adjusted stats
+      double CyclesFreq = BlockStat.Cycles * BlockStat.Freq;
+      double WritesFreq = BlockStat.Writes * BlockStat.Freq;
+      double ReadsFreq = BlockStat.Reads * BlockStat.Freq;
+      double LoadsFreq = BlockStat.Loads * BlockStat.Freq;
+      double StoresFreq = BlockStat.Stores * BlockStat.Freq;
+      double InstrsFreq = BlockStat.InstrCount * BlockStat.Freq;
+      double IntInstrsFreq = BlockStat.IntInstrCount * BlockStat.Freq;
+      double FloatInstrsFreq = BlockStat.FloatInstrCount * BlockStat.Freq;
+      double BranchInstrsFreq = BlockStat.BranchInstrCount * BlockStat.Freq;
+      double LoadStoreInstrsFreq = BlockStat.LoadStoreInstrCount * BlockStat.Freq;
+      double FunctionCallsFreq = BlockStat.FunctionCalls * BlockStat.Freq;
+      double ContextSwitchesFreq = BlockStat.ContextSwitches * BlockStat.Freq;
+      double MulAccessFreq = BlockStat.MulAccess * BlockStat.Freq;
+      double FPAccessFreq = BlockStat.FPAccess * BlockStat.Freq;
+      double IntALUAccessFreq = BlockStat.IntALUAccess * BlockStat.Freq;
+      double IntRegfileReadsFreq = BlockStat.IntRegfileReads * BlockStat.Freq;
+      double FloatRegfileReadsFreq = BlockStat.FloatRegfileReads * BlockStat.Freq;
+      double IntRegfileWritesFreq = BlockStat.IntRegfileWrites * BlockStat.Freq;
+      double FloatRegfileWritesFreq = BlockStat.FloatRegfileWrites * BlockStat.Freq;
+
+      // BlockOutFile << "module_name,func,block,is_entry,is_exit,cycles,writes,reads,loads,stores,instrs,global_freq,int_instr,float_instr,branch_instr,loadstore_instr,func_calls,context_switches,mul_access,fp_access,int_alu_access,int_regfile_read,float_regfile_read,int_regfile_write,float_regfile_write\n";
+      BlockOutFile << BlockStat.ModuleName << "," << i << "," << BlockStat.FunctionName << "," << BlockStat.Name << "," << IsEntryBlock << "," << IsExitBlock << "," << CyclesFreq << "," << WritesFreq << "," << ReadsFreq << "," << LoadsFreq << "," << StoresFreq << "," << InstrsFreq << "," << BlockStat.GlobalFreq << "," << IntInstrsFreq << "," << FloatInstrsFreq << "," << BranchInstrsFreq << "," << LoadStoreInstrsFreq << "," << FunctionCallsFreq << "," << ContextSwitchesFreq << "," << MulAccessFreq << "," << FPAccessFreq << "," << IntALUAccessFreq << "," << IntRegfileReadsFreq << "," << FloatRegfileReadsFreq << "," << IntRegfileWritesFreq << "," << FloatRegfileWritesFreq << "\n";
       
-      Cycles += BlockStat.Cycles * BlockStat.Freq;
-      Writes += BlockStat.Writes * BlockStat.Freq;
+      Cycles += CyclesFreq;
+      Writes += WritesFreq;
       Freq += BlockStat.Freq;
       GlobalFreq += BlockStat.GlobalFreq;
-      Reads += BlockStat.Reads * BlockStat.Freq;
+      Reads += ReadsFreq;
       // LLVM_DEBUG(dbgs() << "Loads before: " << Loads << ", adding: " << BlockStat.Loads << ", times " << BlockStat.Freq << ", to get: " << BlockStat.Loads * BlockStat.Freq << "\n");
-      Loads += BlockStat.Loads * BlockStat.Freq;
-      Stores += BlockStat.Stores * BlockStat.Freq;
-      Instrs += BlockStat.InstrCount * BlockStat.Freq;
-      IntInstrs += BlockStat.IntInstrCount * BlockStat.Freq;
-      FloatInstrs += BlockStat.FloatInstrCount * BlockStat.Freq;
-      BranchInstrs += BlockStat.BranchInstrCount * BlockStat.Freq;
-      LoadStoreInstrs += BlockStat.LoadStoreInstrCount * BlockStat.Freq;
-      FunctionCalls += BlockStat.FunctionCalls * BlockStat.Freq;
-      ContextSwitches += BlockStat.ContextSwitches * BlockStat.Freq;
-      MulAccess += BlockStat.MulAccess * BlockStat.Freq;
-      FPAccess += BlockStat.FPAccess * BlockStat.Freq;
-      IntALUAccess += BlockStat.IntALUAccess * BlockStat.Freq;
-      IntRegfileReads += BlockStat.IntRegfileReads * BlockStat.Freq;
-      FloatRegfileReads += BlockStat.FloatRegfileReads * BlockStat.Freq;
-      IntRegfileWrites += BlockStat.IntRegfileWrites * BlockStat.Freq;
-      FloatRegfileWrites += BlockStat.FloatRegfileWrites * BlockStat.Freq;
-      TotalTime += BlockStat.Cycles * BlockStat.Freq;
+      Loads += LoadsFreq;
+      Stores += StoresFreq;
+      Instrs += InstrsFreq;
+      IntInstrs += IntInstrsFreq;
+      FloatInstrs += FloatInstrsFreq;
+      BranchInstrs += BranchInstrsFreq;
+      LoadStoreInstrs += LoadStoreInstrsFreq;
+      FunctionCalls += FunctionCallsFreq;
+      ContextSwitches += ContextSwitchesFreq;
+      MulAccess += MulAccessFreq;
+      FPAccess += FPAccessFreq;
+      IntALUAccess += IntALUAccessFreq;
+      IntRegfileReads += IntRegfileReadsFreq;
+      FloatRegfileReads += FloatRegfileReadsFreq;
+      IntRegfileWrites += IntRegfileWritesFreq;
+      FloatRegfileWrites += FloatRegfileWritesFreq;
+      TotalTime += CyclesFreq;
 
       if (IsFirstBlock) {
         StartBlock = Block;
