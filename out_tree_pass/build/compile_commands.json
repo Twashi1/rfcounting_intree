@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/media/thomas/writable/coding/rf_count/out_tree_pass/build",
+  "command": "/usr/bin/c++  -I/usr/lib/llvm-21/include -I/media/thomas/writable/coding/rf_count/out_tree_pass/include -O2 -g -DNDEBUG -fPIC -fno-rtti -o CMakeFiles/AddSimCommandsPass.dir/lib/SimCommandsPass.cpp.o -c /media/thomas/writable/coding/rf_count/out_tree_pass/lib/SimCommandsPass.cpp",
+  "file": "/media/thomas/writable/coding/rf_count/out_tree_pass/lib/SimCommandsPass.cpp",
+  "output": "CMakeFiles/AddSimCommandsPass.dir/lib/SimCommandsPass.cpp.o"
+}
+]
