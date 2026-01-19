@@ -5,4 +5,6 @@ rand_instructions/objects/
 *.tar.gz
 McPAT_monolithic/
 .venv/
+.cache/
+out_tree_pass/build/
 

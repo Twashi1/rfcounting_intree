@@ -1,1 +1,0 @@
-/usr/bin/c++ -fPIC -O2 -g -DNDEBUG  -Wl,--gc-sections -shared  -o AddSimCommandsPass.so CMakeFiles/AddSimCommandsPass.dir/lib/SimCommandsPass.cpp.o  -Wl,-rpath,"\$ORIGIN/../lib:/usr/lib/llvm-21/lib:" /usr/lib/llvm-21/lib/libLLVM.so.1 

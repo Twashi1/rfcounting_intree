@@ -8,8 +8,10 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InlineAsm.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Passes/PassPlugin.h"
 
-#define DEBUG_TYPE "sim-commands-pass"
+#define DEBUG_TYPE "sim-commands-pass" // TODO: seems to be unused? or debug not working anyway
 
 using namespace llvm;
 
@@ -17,11 +19,10 @@ const unsigned long MHZ_DEFAULT = 3400;
 
 namespace {
 
-struct AddSimCommandsPassOld : public FunctionPass {
-  static char ID;
-  AddSimCommandsPassOld() : FunctionPass(ID) {}
+struct AddSimCommandsPass : PassInfoMixin<AddSimCommandsPass>  {
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager& Manager) {
+    errs() << "Running on function: " << F.getName() << "\n";
 
-  bool runOnFunction(Function &F) override {
     Module *M = F.getParent();
     LLVMContext &C = M->getContext();
 
@@ -35,17 +36,29 @@ struct AddSimCommandsPassOld : public FunctionPass {
       B.CreateCall(SimCmd);
       Changed = true;
     }
-    return Changed;
+    return PreservedAnalyses::none();
   }
 };
 
 } // end anonymous namespace
 
-char AddSimCommandsPassOld::ID = 0;
-
-extern "C" ::llvm::Pass *createAddSimCommandsPass() {
-  return new AddSimCommandsPassOld();
+extern "C" LLVM_ATTRIBUTE_WEAK PassPluginLibraryInfo
+llvmGetPassPluginInfo() {
+  return {
+    LLVM_PLUGIN_API_VERSION,
+    "AddSimCommandsPass",
+    LLVM_VERSION_STRING,
+    [](PassBuilder &PB) {
+      PB.registerPipelineParsingCallback(
+        [](StringRef Name, FunctionPassManager &FPM,
+           ArrayRef<PassBuilder::PipelineElement>) {
+          if (Name == "sim-commands-pass") {
+            FPM.addPass(AddSimCommandsPass());
+            return true;
+          }
+          return false;
+        });
+    }
+  };
 }
 
-static RegisterPass<AddSimCommandsPassOld>
-    X("sim-commands-pass", "Add SIM Commands Pass", false, false);

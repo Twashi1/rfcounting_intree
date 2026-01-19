@@ -16,17 +16,6 @@
 
 namespace llvm {
 
-// For each BB we need its individual stats
-// for each function we need its links to other functions
-
-// 1. Finding all critical paths
-//  - find nth most path that is not in a critical path
-//  - backtrace until you hit critical path
-
-// 2. Splitting all disjoint critical paths into threshold segments
-//  - from start, iterate block by block until above threshold
-//  - create disjoint path, and continue along critical path
-
 struct ExtBBStats {
   double Cycles;
   double Freq;
@@ -113,10 +102,12 @@ struct ExtPathCollector {
   std::vector<double> CompWeight;
   // adjacency list of SCCs
   std::vector<std::vector<int>> DAGAdjacency;
+  // TODO: rename in order
   // critical path of components
   std::vector<int> CriticalPathComps;
 
   // list of block ids of disjoint subgraphs
+  // TODO: consider AoS approach instead for per-path data
   std::vector<std::vector<unsigned>> DisjointSubgraphBlocks;
   std::vector<std::vector<unsigned>> PotentialStartBlocks;
   std::vector<std::vector<unsigned>> PotentialExitBlocks;
