@@ -1,0 +1,3 @@
+Tech node (nm), Capacity (bytes), Number of banks, Associativity, Output width (bits), Access time (ns), Standby leakage per bank(mW), Area (mm2), Data height (mm), Data width (mm), Tag height (mm), Tag width (mm)
+14, 1835008, 16, 8, 64, 0.882044, 741.755, 2.15463, 1029.32, 976.438, 515.939, 609.373
+14, 512, 1, 128, 16, 0.361745, 1.42405, 0.00468532, 24.4621, 145.102, 

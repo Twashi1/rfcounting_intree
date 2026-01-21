@@ -1,4 +1,4 @@
-module_name,function_name,block_name,cycles,freq,global_freq,loads,stores,spills,reloads,reads,writes,instr_count,int_instr_count,float_instr_count,branch_instr_count,load_store_instr_count,function_calls,context_switches,mul_access,fp_access,ialu_access,int_regfile_read,int_regfile_write,float_regfile_read,float_regfile_write
+module_name,function_name,block_name,cycle_count,freq,global_freq,loads,stores,spills,reloads,reads,writes,instr_count,int_instr_count,float_instr_count,branch_instr_count,load_store_instr_count,function_calls,context_switches,mul_access,fp_access,ialu_access,int_regfile_reads,int_regfile_writes,float_regfile_reads,float_regfile_writes
 PolyBenchC-4.2.1/linear-algebra/blas/gemm/gemm.c,main,entry,134,1,1.80144e+16,16,12,0,0,134,30,43,34,0,1,0,5,5,0,0,0,134,30,0,0
 PolyBenchC-4.2.1/linear-algebra/blas/gemm/gemm.c,main,land.lhs.true,25,1,9.0072e+15,3,1,0,0,23,10,9,6,0,1,0,1,1,0,0,0,23,10,0,0
 PolyBenchC-4.2.1/linear-algebra/blas/gemm/gemm.c,main,lop.rhscnt,7,1,4.5036e+15,1,1,0,0,8,3,3,3,0,0,0,0,0,0,0,0,8,3,0,0
@@ -57,7 +57,7 @@ PolyBenchC-4.2.1/linear-algebra/blas/gemm/gemm.c,print_array,for.inc,8,1,9.0072e
 PolyBenchC-4.2.1/linear-algebra/blas/gemm/gemm.c,print_array,for.end,1,1,9.0072e+15,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0
 PolyBenchC-4.2.1/linear-algebra/blas/gemm/gemm.c,print_array,for.inc10,8,1,9.0072e+15,1,1,0,0,8,3,4,3,0,1,0,0,0,0,0,0,8,3,0,0
 PolyBenchC-4.2.1/linear-algebra/blas/gemm/gemm.c,print_array,for.end12,43,1,9.0072e+15,2,0,0,0,34,15,14,7,0,0,0,2,3,0,0,0,34,15,0,0
-module_name,function_name,block_name,cycles,freq,global_freq,loads,stores,spills,reloads,reads,writes,instr_count,int_instr_count,float_instr_count,branch_instr_count,load_store_instr_count,function_calls,context_switches,mul_access,fp_access,ialu_access,int_regfile_read,int_regfile_write,float_regfile_read,float_regfile_write
+module_name,function_name,block_name,cycle_count,freq,global_freq,loads,stores,spills,reloads,reads,writes,instr_count,int_instr_count,float_instr_count,branch_instr_count,load_store_instr_count,function_calls,context_switches,mul_access,fp_access,ialu_access,int_regfile_reads,int_regfile_writes,float_regfile_reads,float_regfile_writes
 ./PolyBenchC-4.2.1/utilities/polybench.c,polybench_flush_cache,entry,28,1,9.0072e+15,2,5,0,0,33,9,12,10,0,0,0,1,1,0,0,0,33,9,0,0
 ./PolyBenchC-4.2.1/utilities/polybench.c,polybench_flush_cache,for.cond,24,2,1.80144e+16,4,0,0,0,16,4,6,4,0,2,0,0,0,0,0,0,16,4,0,0
 ./PolyBenchC-4.2.1/utilities/polybench.c,polybench_flush_cache,for.body,33,1,9.0072e+15,5,2,0,0,26,7,8,8,0,0,0,0,0,0,1,0,26,7,0,0
@@ -78,7 +78,7 @@ module_name,function_name,block_name,cycles,freq,global_freq,loads,stores,spills
 ./PolyBenchC-4.2.1/utilities/polybench.c,xmalloc,if.then,30,1,1.35108e+16,2,1,0,0,25,9,10,7,0,0,0,2,2,0,0,0,25,9,0,0
 ./PolyBenchC-4.2.1/utilities/polybench.c,xmalloc,if.end,13,1,4.5036e+15,1,0,0,0,6,5,4,2,0,0,0,0,1,0,0,0,6,5,0,0
 ./PolyBenchC-4.2.1/utilities/polybench.c,rtclock,entry,20,1,1.80144e+16,1,1,0,0,13,7,7,4,0,0,0,0,1,0,0,0,13,7,0,0
-module_name,function_name,block_name,cycles,freq,global_freq,loads,stores,spills,reloads,reads,writes,instr_count,int_instr_count,float_instr_count,branch_instr_count,load_store_instr_count,function_calls,context_switches,mul_access,fp_access,ialu_access,int_regfile_read,int_regfile_write,float_regfile_read,float_regfile_write
+module_name,function_name,block_name,cycle_count,freq,global_freq,loads,stores,spills,reloads,reads,writes,instr_count,int_instr_count,float_instr_count,branch_instr_count,load_store_instr_count,function_calls,context_switches,mul_access,fp_access,ialu_access,int_regfile_reads,int_regfile_writes,float_regfile_reads,float_regfile_writes
 ./objects//gemm.pgo.merged.ll,main,entry,76,1,1.80144e+16,2,1,0,0,57,29,22,8,0,1,0,5,5,0,0,0,57,29,0,0
 ./objects//gemm.pgo.merged.ll,main,land.lhs.true,17,1,6.0048e+15,3,0,0,0,10,3,4,3,0,1,0,0,0,0,0,0,10,3,0,0
 ./objects//gemm.pgo.merged.ll,main,if.then,5,1,3.53219e+14,0,0,0,0,3,2,1,0,0,0,0,1,1,0,0,0,3,2,0,0
