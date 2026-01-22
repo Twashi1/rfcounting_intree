@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
 # Path to your pass plugin
 PASS_PLUGIN="./build/AddSimCommandsPass.so"
 
@@ -41,3 +39,7 @@ llc-21 "$OBJ_DIR/$FILENAME.ll" -o "$OBJ_DIR/$FILENAME.s"
 
 # 5. Optionally generate object file
 llc-21 "$OBJ_DIR/$FILENAME.ll" -filetype=obj -o "$OBJ_DIR/$FILENAME.o"
+
+clang-21 -no-pie "$OBJ_DIR/$FILENAME.o" -o "$FILENAME"
+
+echo "Created output files: $OBJ_DIR/$FILENAME.ll, $OBJ_DIR/$FILENAME.s, $OBJ_DIR/$FILENAME.o"

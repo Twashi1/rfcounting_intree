@@ -29,14 +29,14 @@
 		<param name="physical_address_width" value="52" />
 		<param name="virtual_memory_page_size" value="4096" />
 		 
-		<stat name="total_cycles" value="58" />
+		<stat name="total_cycles" value="7450065888" />
 		<stat name="idle_cycles" value="0" />
-		<stat name="busy_cycles" value="58" />
+		<stat name="busy_cycles" value="7450065888" />
 			
 		
 		<component id="system.core0" name="core0">
 			
-			<param name="clock_rate" value="380" />
+			<param name="clock_rate" value="3400" />
 			
 			<param name="opt_local" value="1" />
 			<param name="instruction_length" value="32" />
@@ -105,54 +105,54 @@
 			<param name="RAS_size" value="32" />						
 			
 			
-			<stat name="total_instructions" value="11" />
-			<stat name="int_instructions" value="1" />
+			<stat name="total_instructions" value="2158289653" />
+			<stat name="int_instructions" value="1973800745" />
 			<stat name="fp_instructions" value="0" />
-			<stat name="branch_instructions" value="0" />
+			<stat name="branch_instructions" value="166113292" />
 			<stat name="branch_mispredictions" value="0" />
-			<stat name="load_instructions" value="0" />
-			<stat name="store_instructions" value="0" />
-			<stat name="committed_instructions" value="11" />
-			<stat name="committed_int_instructions" value="1" />
+			<stat name="load_instructions" value="656048979" />
+			<stat name="store_instructions" value="328892551" />
+			<stat name="committed_instructions" value="2158289653" />
+			<stat name="committed_int_instructions" value="1973800745" />
 			<stat name="committed_fp_instructions" value="0" />
 			<stat name="pipeline_duty_cycle" value="1" />
 			
-			<stat name="total_cycles" value="58" />
+			<stat name="total_cycles" value="7450065888" />
 		    <stat name="idle_cycles" value="0" />
-		    <stat name="busy_cycles" value="58" />
+		    <stat name="busy_cycles" value="7450065888" />
 			
 			
-			<stat name="ROB_reads" value="11" />
-			<stat name="ROB_writes" value="11" />
+			<stat name="ROB_reads" value="2158289653" />
+			<stat name="ROB_writes" value="2158289653" />
 			
-			<stat name="rename_reads" value="22" /> 
-			<stat name="rename_writes" value="11" />
+			<stat name="rename_reads" value="4316579306" /> 
+			<stat name="rename_writes" value="2158289653" />
 			<stat name="fp_rename_reads" value="0" />
 			<stat name="fp_rename_writes" value="0" />
 			
 			
-			<stat name="inst_window_reads" value="11" />
-			<stat name="inst_window_writes" value="11" />
-			<stat name="inst_window_wakeup_accesses" value="22" />
+			<stat name="inst_window_reads" value="2158289653" />
+			<stat name="inst_window_writes" value="2158289653" />
+			<stat name="inst_window_wakeup_accesses" value="4316579306" />
 			<stat name="fp_inst_window_reads" value="0" />
 			<stat name="fp_inst_window_writes" value="0" />
 			<stat name="fp_inst_window_wakeup_accesses" value="0" />
 			
-			<stat name="int_regfile_reads" value="17" />
+			<stat name="int_regfile_reads" value="5783153024" />
 			<stat name="float_regfile_reads" value="0" />
-			<stat name="int_regfile_writes" value="20" />
+			<stat name="int_regfile_writes" value="1829270916" />
 			<stat name="float_regfile_writes" value="0" />
 			
-			<stat name="function_calls" value="3" />
-			<stat name="context_switches" value="4" />
+			<stat name="function_calls" value="2205" />
+			<stat name="context_switches" value="2213" />
 			
 			
 			<stat name="ialu_accesses" value="0" />			
-			<stat name="fpu_accesses" value="0" />
-			<stat name="mul_accesses" value="0" />
+			<stat name="fpu_accesses" value="56251" />
+			<stat name="mul_accesses" value="334629922" />
 			<stat name="cdb_alu_accesses" value="0" />
-			<stat name="cdb_mul_accesses" value="0" />
-			<stat name="cdb_fpu_accesses" value="0" />
+			<stat name="cdb_mul_accesses" value="334629922" />
+			<stat name="cdb_fpu_accesses" value="56251" />
 			
 			
 			
@@ -179,7 +179,7 @@
 			</component>
 			<component id="system.core0.itlb" name="itlb">
 				<param name="number_entries" value="128" />
-				<stat name="total_accesses" value="5" />
+				<stat name="total_accesses" value="1079144826" />
 				<stat name="total_misses" value="4" />
 				<stat name="conflicts" value="0" />	
 				
@@ -191,13 +191,13 @@
 				
 				<param name="buffer_sizes" value="16, 16, 16,0" />
 				 
-				<stat name="read_accesses" value="5" />
+				<stat name="read_accesses" value="1079144826" />
 				<stat name="read_misses" value="0" />
 				<stat name="conflicts" value="0" />				
 			</component>
 			<component id="system.core0.dtlb" name="dtlb">
 				<param name="number_entries" value="128" />
-				<stat name="total_accesses" value="11" />
+				<stat name="total_accesses" value="2158289653" />
 				<stat name="total_misses" value="0" />
 				<stat name="conflicts" value="0" />	
 			</component>
@@ -206,7 +206,7 @@
 				<param name="dcache_config" value="65536,16,2,1,1,3,16,0" />
 				<param name="buffer_sizes" value="16, 16, 16, 16" />
 					
-				<stat name="read_accesses" value="22" />
+				<stat name="read_accesses" value="4316579306" />
 				<stat name="write_accesses" value="0" />
 				<stat name="read_misses" value="0" />
 				<stat name="write_misses" value="0" />
@@ -217,7 +217,7 @@
 			        
 				<param name="BTB_config" value="6144,4,2,1, 1,3" /> 
 				
-				<stat name="read_accesses" value="11" /> 
+				<stat name="read_accesses" value="2158289653" /> 
 				<stat name="write_accesses" value="0" />
 			</component>
 	</component>
@@ -233,7 +233,7 @@
 				
 				<param name="device_type" value="0" />
 				
-				<stat name="read_accesses" value="22" />
+				<stat name="read_accesses" value="4316579306" />
 				<stat name="write_accesses" value="0" />
 				<stat name="read_misses" value="0" />
 				<stat name="write_misses" value="0" />
@@ -315,7 +315,7 @@
 			
 			<param name="link_routing_over_percentage" value="1.0" />
 			
-			<stat name="total_accesses" value="2" />
+			<stat name="total_accesses" value="539572413" />
 			
 			<stat name="duty_cycle" value="1" />
 		</component>		
@@ -338,9 +338,9 @@
 			<param name="databus_width" value="32" />
 			<param name="addressbus_width" value="32" />
 			
-			<stat name="memory_accesses" value="1" />
-			<stat name="memory_reads" value="0" />
-			<stat name="memory_writes" value="0" />
+			<stat name="memory_accesses" value="215828965" />
+			<stat name="memory_reads" value="107914482" />
+			<stat name="memory_writes" value="107914482" />
 			  			
 		</component>
 

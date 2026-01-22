@@ -186,9 +186,6 @@ def get_stats_df_subgraphs(csv_path: str, module_index: int) -> [pd.DataFrame]:
     mbbs = data[module_index]
     df = pd.DataFrame(mbbs)
 
-    print("PRINTING RAW LOADED DF")
-    print(df)
-
     cols = [
         CYCLE_COUNT,
         INSTR_COUNT,
@@ -226,9 +223,6 @@ def get_stats_df_subgraphs(csv_path: str, module_index: int) -> [pd.DataFrame]:
     df[IS_EXIT] = df[IS_EXIT].astype(bool)
 
     df = stats_df_estimate_missing_cols(df)
-
-    print("PRINTING ESTIMATED DF")
-    print(df)
 
     # Accumulate stats for each given path index
     # then re-estimate missing stats and add to list
@@ -356,12 +350,26 @@ def stats_df_estimate_missing_cols(df : pd.DataFrame):
     return df
 
 
-def modify_xml(input_path: str, output_path: str, input_stats: dict, input_cfg) -> None:
+def modify_xml(input_path: str, output_path: str, input_stats: dict, input_cfg, voltage_level: str) -> None:
     tree = ET.parse(input_path)
 
-    mcpat_config = input_cfg[MCPAT_CFG_MODULE_NAME]
+    VOLTAGE_LEVEL = MCPAT_VOLTAGE_MED
 
-    print(input_stats)
+    if isinstance(voltage_level, str):
+        if voltage_level == "high":
+            VOLTAGE_LEVEL = MCPAT_VOLTAGE_HIGH
+        elif voltage_level == "med":
+            VOLTAGE_LEVEL = MCPAT_VOLTAGE_MED
+        elif voltage_level == "low":
+            VOLTAGE_LEVEL = MCPAT_VOLTAGE_LOW
+        else:
+            raise ValueError(f"Expected voltage level low/med/high, got {voltage_level}") 
+    elif isinstance(voltage_level, int):
+        VOLTAGE_LEVEL = [MCPAT_VOLTAGE_LOW, MCPAT_VOLTAGE_MED, MCPAT_VOLTAGE_HIGH][voltage_level]
+    else:
+        raise ValueError(f"Unrecognised voltage level input, got {voltage_level}")
+
+    mcpat_config = input_cfg[MCPAT_CFG_MODULE_NAME]
 
     change_xml_property(tree, "system", "param", "temperature", str(mcpat_config[MCPAT_TEMP]))
     change_xml_property(tree, "system", "param", "core_tech_node", str(mcpat_config[MCPAT_NODE_SIZE]))
@@ -482,13 +490,9 @@ def load_arbitrary_stat_file(path: str, module_index: int=0, path_index: int=-1)
             raise NotImplementedError("Cannot sum over subgraphs, use MBB stats or select a specific subgraph")
 
         for stat_df in all_stats:
-            print(stat_df[PATH_INDEX])
             if len(stat_df) == 1 and stat_df.iloc[0][PATH_INDEX] == path_index:
                 stats = stat_df
                 break
-
-        print("STATS AFTER FILTERING")
-        print(stats)
 
     elif filename == "MBB_stats.csv":
         all_stats = get_stats_df_mbbs(path, module_index)

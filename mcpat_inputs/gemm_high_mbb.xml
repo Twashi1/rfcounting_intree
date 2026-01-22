@@ -36,7 +36,7 @@
 		
 		<component id="system.core0" name="core0">
 			
-			<param name="clock_rate" value="380" />
+			<param name="clock_rate" value="3400" />
 			
 			<param name="opt_local" value="1" />
 			<param name="instruction_length" value="32" />
