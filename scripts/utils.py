@@ -222,20 +222,28 @@ def get_stats_df_subgraphs(csv_path: str, module_index: int) -> [pd.DataFrame]:
     df[IS_ENTRY] = df[IS_ENTRY].astype(bool)
     df[IS_EXIT] = df[IS_EXIT].astype(bool)
 
-    df = stats_df_estimate_missing_cols(df)
-
-    # Accumulate stats for each given path index
-    # then re-estimate missing stats and add to list
-    filtered = df[cols + [PATH_INDEX]]
+    # This doesn't include the estimated columns, because we haven't added estimated columns
+    other_cols = [
+        c for c in df.columns if c not in cols
+    ]
 
     dfs = []
-    for path, group in filtered.groupby(PATH_INDEX):
+    for path, group in df.groupby(PATH_INDEX):
         summed = group[cols].sum()
+
         summed[PATH_INDEX] = path
         group_df = summed.to_frame().T
         group_df = stats_df_estimate_missing_cols(group_df)
-        # TODO: add back in useful columns to group_df
+
+        # Adding back in useful columns
+        for c in other_cols:
+            group_df[c] = group[c].iloc[0]
+
         dfs.append(group_df)
+
+    # TODO: additional inputs/outputs for CFG and per-block stats here?
+    # - at least the per-block entry/exit can be taken from here
+    # - CFG we need additional input for so another function can handle that likely
 
     return dfs
 
@@ -243,6 +251,7 @@ def get_stats_df_calling_points():
     raise NotImplementedError()
 
 def get_stats_df_gem5_run(input_path: str) -> pd.DataFrame:
+    # TODO: note df is just a dictionary
     df = {}
     data = {}
 
@@ -315,6 +324,7 @@ def get_stats_df_gem5_run(input_path: str) -> pd.DataFrame:
     df[CDB_MUL_ACCESSES] = self.mul_access
     df[BUSY_CYCLES] = self.cycle_count - self.idle_cycles
 
+    # TODO: does this work? we're creating a df off a dict of scalar values, probably will need lists or this will auto-convert to a series or error
     return pd.DataFrame(df)
 
 def stats_df_estimate_missing_cols(df : pd.DataFrame):
@@ -352,6 +362,14 @@ def stats_df_estimate_missing_cols(df : pd.DataFrame):
 
 def modify_xml(input_path: str, output_path: str, input_stats: dict, input_cfg, voltage_level: str) -> None:
     tree = ET.parse(input_path)
+
+    if not isinstance(input_stats, dict):
+        # print("[WARN] Input stats was not a dictionary") 
+
+        if len(input_stats) != 1:
+            print("[WARN] Constructing XML file, but passed more than one stat instance, expected a single stat instance")
+
+        input_stats = input_stats.iloc[0].to_dict()
 
     VOLTAGE_LEVEL = MCPAT_VOLTAGE_MED
 
@@ -477,7 +495,10 @@ def modify_xml(input_path: str, output_path: str, input_stats: dict, input_cfg, 
     
     tree.write(output_path, encoding="utf-8", xml_declaration=True)
 
-def load_arbitrary_stat_file(path: str, module_index: int=0, path_index: int=-1) -> pd.DataFrame:
+# Creating this custom stat format isn't the most useful anymore since we don't intend
+#   to profile any gem5 or external analysis often
+#   But to avoid redesign we'll keep
+def load_arbitrary_stat_file(path: str, module_index: int=0, path_index: int=-1, take_sum: bool=False) -> pd.DataFrame:
     filename = os.path.basename(path)
     _, ext = os.path.splitext(filename)
 
@@ -486,24 +507,31 @@ def load_arbitrary_stat_file(path: str, module_index: int=0, path_index: int=-1)
     if filename == "PathBlocks.csv":
         all_stats = get_stats_df_subgraphs(path, module_index)
 
-        if path_index == -1:
+        if path_index == -1 and take_sum:
             raise NotImplementedError("Cannot sum over subgraphs, use MBB stats or select a specific subgraph")
 
-        for stat_df in all_stats:
-            if len(stat_df) == 1 and stat_df.iloc[0][PATH_INDEX] == path_index:
-                stats = stat_df
-                break
+        if path_index == -1:
+            stats = pd.concat(all_stats, ignore_index=True)
+
+        else:
+            for stat_df in all_stats:
+                if len(stat_df) == 1 and stat_df.iloc[0][PATH_INDEX] == path_index:
+                    stats = stat_df
+                    break
 
     elif filename == "MBB_stats.csv":
         all_stats = get_stats_df_mbbs(path, module_index)
 
-        if path_index == -1:
+        if path_index == -1 and take_sum:
             numerical_sums = all_stats.select_dtypes(include="number").sum()
             # Get first of all other columns
             other = all_stats.drop(columns=numerical_sums.index).iloc[0]
             stats = numerical_sums.combine_first(other)
             # Stats isn't strictly a dataframe at this point, but it works fine anyway 
             stats = stats.to_frame().T
+        elif path_index == -1:
+            # TODO: copy probably redundant
+            stats = all_stats.copy()
         else:
             stats = all_stats[path_index]
     # Assuming gem5 output
@@ -518,24 +546,20 @@ def load_arbitrary_stat_file(path: str, module_index: int=0, path_index: int=-1)
     if stats is None:
         raise RuntimeError("Failed to load stat file")
 
-    # Convert from DF to series
-    return stats.iloc[0]
+    return stats
 
-def create_standard_stat_file(path: str, output_name: str, module_index: int=0, path_index: int=-1) -> None:
-    stat_df = load_arbitrary_stat_file(path, module_index, path_index)
-    stat_df.to_csv(f"{output_name}_STD.csv")
+def create_standard_stat_file(path: str, output_name: str, module_index: int=0, path_index: int=-1, take_sum: bool=False) -> None:
+    stat_df = load_arbitrary_stat_file(path, module_index, path_index, take_sum)
+    stat_df.to_csv(f"{output_name}_STD.csv", index=False)
 
-def load_standard_stat_file(path: str) -> dict:
-    df = pd.read_csv(path, index_col=0)
-    stats = df.iloc[:, 0].to_frame().T
-    
-    stats = stats.apply(pd.to_numeric, errors="ignore")
+def load_standard_stat_file(path: str) -> pd.DataFrame:
+    df = pd.read_csv(path)
+
+    df = df.apply(pd.to_numeric, errors="ignore")
     # Cast all numeric columns to integers
-    stats[stats.select_dtypes(include="number").columns] = (
-        stats.select_dtypes(include="number").round().astype("Int64")
+    df[df.select_dtypes(include="number").columns] = (
+        df.select_dtypes(include="number").round().astype("Int64")
     )
 
-    series = stats.iloc[0, :]
-
-    return series.to_dict() 
+    return df
 

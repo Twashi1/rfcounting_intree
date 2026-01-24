@@ -86,10 +86,10 @@ These stats can be estimated from others (although likely poorly).
 - `btb_reads`: ? (assumed `instr_count`)
 - `btb_writes`: ? (assumed 0)
 
-## Generating McPAT output
+## CSV Files
 
-## Creating the thermal model
+### Simulator command insertion input `SIM_COMMAND_INPUT.csv`
 
-## Creating DVS calling points
+`module_name,function_name,block_name,is_entry,is_exit,frequency`
 
-## Testing using snipersim
+

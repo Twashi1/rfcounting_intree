@@ -9,6 +9,7 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/LineIterator.h"
 #include "llvm/Support/raw_ostream.h"
 
 #define DEBUG_TYPE \
@@ -23,6 +24,22 @@ namespace {
 struct AddSimCommandsPass : PassInfoMixin<AddSimCommandsPass> {
   PreservedAnalyses run(Function& F, FunctionAnalysisManager& Manager) {
     errs() << "Running on function: " << F.getName() << "\n";
+
+    auto BufOrErr = MemoryBuffer::getFile("SIM_COMMAND_INPUT.csv");
+    if (!BufOrErr) {
+      errs() << "Failed to find input csv SIM_COMMAND_INPUT.csv\n";
+
+      return PreservedAnalyses::none();
+    }
+
+    auto Buf = std::move(*BufOrErr);
+
+    // TODO: define some input format for SIM_COMMAND_INPUT
+    //  reading every `is_entry`, `is_exit` block
+    //  if a block has both defined, let `is_entry` supercede
+    //  apply some standard scaling for now, but in reality
+    for (line_iterator I(*Buf), E; I != E; ++I) {
+    }
 
     Module* M = F.getParent();
     LLVMContext& C = M->getContext();
