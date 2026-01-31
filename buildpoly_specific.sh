@@ -1,5 +1,5 @@
 mkdir -p objects
-rm -f MBB_stats.csv CritPath.csv reg_stats.csv PathBlocks.csv
+rm -f MBB_stats.csv CritPath.csv reg_stats.csv PathBlocks.csv CFG.csv TopoComp.csv PerBlockAdditional.csv DAG.csv
 
 POLY=./PolyBenchC-4.2.1
 OBJ=./objects
