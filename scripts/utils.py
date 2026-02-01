@@ -121,7 +121,7 @@ def load_multipart_csv(path: str, delim=",") -> list:
     return [i for i in data if len(i) > 0]
 
 
-def load_adjacency_list_cfg(path: str, module_index: int) -> dict:
+def load_adjacency_list_cfg(path: str, module_index: int) -> pd.DataFrame:
     csv_parts = load_multipart_csv(path)
     module_data = csv_parts[module_index]
 
@@ -132,6 +132,42 @@ def load_adjacency_list_cfg(path: str, module_index: int) -> dict:
     df["start_path_index"] = df["start_path_index"].astype(int)
     df["end_path_index"] = df["end_path_index"].astype(int)
     df["is_start_entry"] = df["is_start_entry"].astype(int)
+
+    return df
+
+
+def load_adjacency_list_dag(path: str, module_index: int) -> pd.DataFrame:
+    csv_parts = load_multipart_csv(path)
+    module_data = csv_parts[module_index]
+
+    df = pd.DataFrame(module_data)
+    df["start_comp"] = df["start_comp"].astype(int)
+    df["end_comp"] = df["end_comp"].astype(int)
+
+    return df
+
+
+def load_topo_sort(path: str, module_index: int) -> list:
+    csv_parts = load_multipart_csv(path)
+    module_data = csv_parts[module_index]
+
+    df = pd.DataFrame(module_data)
+    df["comp_id"] = df["comp_id"].astype(int)
+    df["comp_priority"] = df["comp_priority"].astype(int)
+
+    comp_ids = df.sort_values("comp_priority", ascending=True)["comp_id"].tolist()
+
+    return comp_ids
+
+
+def load_block_additional(path: str, module_index: int) -> pd.DataFrame:
+    csv_parts = load_multipart_csv(path)
+    module_data = csv_parts[module_index]
+
+    df = pd.DataFrame(module_data)
+    df["block_id"] = df["block_id"].astype(int)
+    df["comp_id"] = df["comp_id"].astype(int)
+    df["execution_cycles"] = df["execution_cycles"].astype(float)
 
     return df
 
