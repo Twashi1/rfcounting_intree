@@ -38,19 +38,20 @@ unsigned RegisterAccessPreRAPass::Total = 0;
 ExtPathCollector RegisterAccessPreRAPass::PC = {};
 std::mutex RegisterAccessPreRAPass::MapLock;
 
-std::stringstream extOutputBBStats(const ExtBBStats &values) {
+std::stringstream extOutputBBStats(const ExtBBStats &values,
+                                   unsigned UniqueBlockID) {
   std::stringstream ss;
 
   ss << values.ModuleName << "," << values.FunctionName << "," << values.Name
-     << "," << values.Cycles << "," << values.Freq << "," << values.GlobalFreq
-     << "," << values.Loads << "," << values.Stores << "," << values.Spills
-     << "," << values.Reloads << "," << values.Reads << "," << values.Writes
-     << "," << values.InstrCount << "," << values.IntInstrCount << ","
-     << values.FloatInstrCount << "," << values.BranchInstrCount << ","
-     << values.LoadStoreInstrCount << "," << values.FunctionCalls << ","
-     << values.ContextSwitches << "," << values.MulAccess << ","
-     << values.FPAccess << "," << values.IntALUAccess << ","
-     << values.IntRegfileReads << "," << values.IntRegfileWrites << ","
+     << "," << UniqueBlockID << "," << values.Cycles << "," << values.Freq
+     << "," << values.GlobalFreq << "," << values.Loads << "," << values.Stores
+     << "," << values.Spills << "," << values.Reloads << "," << values.Reads
+     << "," << values.Writes << "," << values.InstrCount << ","
+     << values.IntInstrCount << "," << values.FloatInstrCount << ","
+     << values.BranchInstrCount << "," << values.LoadStoreInstrCount << ","
+     << values.FunctionCalls << "," << values.ContextSwitches << ","
+     << values.MulAccess << "," << values.FPAccess << "," << values.IntALUAccess
+     << "," << values.IntRegfileReads << "," << values.IntRegfileWrites << ","
      << values.FloatRegfileReads << "," << values.FloatRegfileWrites;
 
   return ss;
@@ -58,7 +59,8 @@ std::stringstream extOutputBBStats(const ExtBBStats &values) {
 
 std::string extBBHeaders() {
   const char *headers =
-      "module_name,function_name,block_name,cycle_count,freq,global_freq,loads,"
+      "module_name,function_name,block_name,block_id,cycle_count,freq,global_"
+      "freq,loads,"
       "stores,spills,"
       "reloads,reads,writes,instr_count,int_instr_count,float_instr_count,"
       "branch_instr_count,load_store_instr_count,function_calls,context_"
@@ -85,10 +87,13 @@ void ExtPathCollector::buildCriticalPath() {
   //    functions it links to
   // Need to add the machine functions into this global adjacency list
   for (const ExtFunctionMetadata &Metadata : FunctionMetadata) {
-    for (unsigned Successor : Metadata.Successors) {
+    for (unsigned i = 0; i < Metadata.Successors.size(); i++) {
+      unsigned SuccessorFunctionID = Metadata.Successors[i];
+
       // Connection from our entry block, to the successor function's entry
       // block
-      auto SuccessorData = FunctionMetadata[Successor];
+      auto SuccessorData = FunctionMetadata[SuccessorFunctionID];
+      unsigned CallerBlock = Metadata.CallerBlockToFunctionID[i].first;
 
       // indicates that this is some external function that we didn't run our MF
       // pass on
@@ -96,8 +101,23 @@ void ExtPathCollector::buildCriticalPath() {
         continue;
       }
 
-      GlobalAdjacencyList[Metadata.EntryBasicBlock].push_back(
-          FunctionMetadata[Successor].EntryBasicBlock);
+      // TODO: need to verify all connections are unique!!!
+      GlobalAdjacencyList[CallerBlock].push_back(
+          FunctionMetadata[SuccessorFunctionID].EntryBasicBlock);
+
+      // Construct edge data
+      ExtBlockEdgeData FunctionEdgeData;
+      // TODO: is this necessarily true? probably depends on some comparison
+      // result
+      FunctionEdgeData.Probability = 1.0;
+      FunctionEdgeData.BlockIDStart = CallerBlock;
+      FunctionEdgeData.FunctionStart = Metadata.FunctionName;
+      FunctionEdgeData.BlockIDEnd = SuccessorData.EntryBasicBlock;
+      FunctionEdgeData.FunctionStart = SuccessorData.FunctionName;
+      FunctionEdgeData.IsFunctionEdge = true;
+
+      BlockEdgeData[std::pair<unsigned, unsigned>(
+          CallerBlock, SuccessorData.EntryBasicBlock)] = FunctionEdgeData;
     }
   }
 
@@ -115,7 +135,20 @@ void ExtPathCollector::buildCriticalPath() {
                         << "\n");
     }
 
-    auto Successors = GlobalAdjacencyList[BlockID];
+    std::vector<unsigned> &Successors = GlobalAdjacencyList[BlockID];
+
+    // Ensure list of successors is unique
+    std::unordered_set<int> SeenSuccessors;
+
+    // Preserve original order (not necessary afaik), while removing duplicates
+    auto it = Successors.begin();
+    while (it != Successors.end()) {
+      if (!SeenSuccessors.insert(*it).second) {
+        it = Successors.erase(it);
+      } else {
+        ++it;
+      }
+    }
 
     for (unsigned ChildID : Successors) {
       MaxIDSeen = std::max(MaxIDSeen, ChildID);
@@ -584,7 +617,8 @@ std::vector<ExtBBStats> extProfileToBBStats(StringRef fileName) {
 }
 
 void ExtPathCollector::outputCriticalPath() {
-  // TODO: function is a misnomer, there are multiple critical paths
+  // TODO: function is poorly named, there are multiple critical paths
+  // TODO: not even critical paths anymore, DVS calling points instead
   std::error_code EC;
   raw_fd_ostream OutFile("CritPath.csv", EC, sys::fs::OF_Append);
 
@@ -593,7 +627,84 @@ void ExtPathCollector::outputCriticalPath() {
     return;
   }
 
-  raw_fd_ostream BlockOutFile("PathBlocks.csv", EC, sys::fs::OF_Append);
+  std::error_code EC2;
+
+  // TODO: output the component of each node in the CFG too
+  raw_fd_ostream OutCFGFile("CFG.csv", EC2, sys::fs::OF_Append);
+
+  if (EC2) {
+    errs() << "Error opening file: " << EC2.message() << "\n";
+    return;
+  }
+
+  std::error_code EC_DAG;
+  std::error_code EC_TopoComp;
+  std::error_code EC_BlockAdditional;
+  std::error_code EC_MBBStats;
+
+  raw_fd_ostream OutDAGFile("DAG.csv", EC_DAG, sys::fs::OF_Append);
+
+  if (EC_DAG) {
+    errs() << "Error opening file: " << EC_DAG.message() << "\n";
+    return;
+  }
+
+  raw_fd_ostream OutTopoComp("TopoComp.csv", EC_TopoComp, sys::fs::OF_Append);
+
+  if (EC_TopoComp) {
+    errs() << "Error opening file: " << EC_TopoComp.message() << "\n";
+    return;
+  }
+
+  raw_fd_ostream OutBlockAdditional("PerBlockAdditional.csv",
+                                    EC_BlockAdditional, sys::fs::OF_Append);
+
+  if (EC_BlockAdditional) {
+    errs() << "Error opening file: " << EC_BlockAdditional.message() << "\n";
+    return;
+  }
+
+  raw_fd_ostream OutMBB("MBB_stats.csv", EC_MBBStats, sys::fs::OF_Append);
+
+  if (EC_MBBStats) {
+    errs() << "Error opening file: " << EC_MBBStats.message() << "\n";
+    return;
+  }
+
+  // TODO: required CFG data
+  //    1. we want to output the full DAG
+  //    2. the list of basic block IDs for every component in DAG
+  //    3. the full adjacency list between blocks, not just DAGs
+  //      - should contain branch probability info (obtained by EdgeData)
+  //    4. PathBlocks.csv should contain the same block IDs
+
+  // For some given path
+  //   we want to be able to re-construct the full tree of this path
+  //   associate each node with the mcpat output files
+  //   associate each edge with branch probability info
+
+  // 1. add block IDs to PathBlocks.csv
+  // 2. create CFG.csv data format as follows
+  // start_function_name,start_block_name,start_block_id,exit_function_name,exit_block_name,exit_block_id,branch_prob,start_path_index,end_path_index,is_start_entry
+  OutCFGFile
+      << "module_name,start_function_name,start_block_name,start_block_id,exit_"
+         "function_"
+         "name,exit_block_name,exit_block_id,branch_prob,start_path_index,end_"
+         "path_index,is_start_entry\n";
+
+  OutDAGFile << "module_name,start_comp,end_comp\n";
+  OutTopoComp << "module_name,comp_id,comp_priority\n";
+  OutBlockAdditional << "module_name,block_id,comp_id,execution_cycles\n";
+  OutMBB << extBBHeaders().c_str() << "\n";
+
+  std::error_code EC3;
+
+  raw_fd_ostream BlockOutFile("PathBlocks.csv", EC3, sys::fs::OF_Append);
+
+  if (EC3) {
+    errs() << "Error opening file: " << EC3.message() << "\n";
+    return;
+  }
 
   // TODO: this is unused
   // NOTE: both freq and global_freq lose meaning when summed across blocks
@@ -614,7 +725,7 @@ void ExtPathCollector::outputCriticalPath() {
          "mul_"
          "access,"
          "fp_access,ialu_access,int_regfile_reads,float_regfile_reads,int_"
-         "regfile_writes,float_regfile_writes\n";
+         "regfile_writes,float_regfile_writes,block_id\n";
 
   // TODO: need to output the full MBB list somewhere
   // TODO: need to ensure we apply DVS to the correct block,
@@ -624,6 +735,13 @@ void ExtPathCollector::outputCriticalPath() {
   //  the SCC
   // TODO: also it's first indexed SCC, we likely need more information than the
   // list of blocks
+  //
+  // TODO: for each block in each subgraph, we want to associate the path that
+  // block belongs to, with the block, we can additionally flag if a block
+  // belongs to multiple paths
+
+  std::vector<int> PathIndexOfBlock = std::vector<int>(BlockIDCount, -1);
+  std::vector<int> MapIsEntryBlock = std::vector<int>(BlockIDCount, 0);
 
   for (int i = 0; i < DisjointSubgraphBlocks.size(); i++) {
     const std::vector<unsigned> &MBBSubgraph = DisjointSubgraphBlocks[i];
@@ -694,6 +812,8 @@ void ExtPathCollector::outputCriticalPath() {
 
       ExtBBStats BlockStat = BlockStats[Block];
 
+      PathIndexOfBlock[Block] = i;
+
       LLVM_DEBUG(dbgs() << "Block " << BlockStat.Name << " from function "
                         << BlockStat.FunctionName
                         << ", is being parsed in path index: " << i << "\n");
@@ -707,11 +827,12 @@ void ExtPathCollector::outputCriticalPath() {
         IsExitBlock = true;
       }
 
+      // Could skip printing for these blocks, but we still need to compute
+      // stats
       if (!IsEntryBlock && !IsExitBlock) {
-        // TODO: can continue here if we want
-        // this would skip printing blocks that are neither start nor entry
-        // blocks but just for the sake of a full output, we keep them
       }
+
+      MapIsEntryBlock[Block] = static_cast<int>(IsEntryBlock);
 
       // Frequency-adjusted stats
       double CyclesFreq = BlockStat.Cycles * BlockStat.Freq;
@@ -749,7 +870,7 @@ void ExtPathCollector::outputCriticalPath() {
                    << MulAccessFreq << "," << FPAccessFreq << ","
                    << IntALUAccessFreq << "," << IntRegfileReadsFreq << ","
                    << FloatRegfileReadsFreq << "," << IntRegfileWritesFreq
-                   << "," << FloatRegfileWritesFreq << "\n";
+                   << "," << FloatRegfileWritesFreq << "," << Block << "\n";
 
       Cycles += CyclesFreq;
       Writes += WritesFreq;
@@ -810,7 +931,144 @@ void ExtPathCollector::outputCriticalPath() {
             << IntRegfileWrites << "," << FloatRegfileWrites << "\n";
   }
 
+  // Write full CFG data to CFG.csv
+  // start_function_name,start_block_name,start_block_id,exit_function_name,exit_block_name,exit_block_id,branch_prob,start_path_index,end_path_index,is_start_entry
+  for (unsigned u = 0; u < GlobalAdjacencyList.size(); u++) {
+    std::vector<unsigned> const &Neighbours = GlobalAdjacencyList[u];
+    unsigned StartBlock = u;
+    ExtBBStats StartStats = BlockStats[StartBlock];
+
+    for (unsigned v = 0; v < Neighbours.size(); v++) {
+      unsigned EndBlock = Neighbours[v];
+      ExtBBStats EndStats = BlockStats[EndBlock];
+
+      // TODO: get edge data
+      std::pair<unsigned, unsigned> EdgePair =
+          std::pair<unsigned, unsigned>(StartBlock, EndBlock);
+
+      double EdgeProbability = 0.0;
+
+      // Edge has associated data, so assign probability
+      if (BlockEdgeData.count(EdgePair)) {
+        ExtBlockEdgeData Edge = BlockEdgeData[EdgePair];
+        EdgeProbability = Edge.Probability;
+      }
+
+      // print to CFG data in format
+      OutCFGFile << StartStats.ModuleName << "," << StartStats.FunctionName
+                 << "," << StartStats.Name << "," << StartBlock << ","
+                 << EndStats.FunctionName << "," << EndStats.Name << ","
+                 << EndBlock << "," << EdgeProbability << ","
+                 << PathIndexOfBlock[StartBlock] << ","
+                 << PathIndexOfBlock[EndBlock] << ","
+                 << MapIsEntryBlock[StartBlock] << "\n";
+    }
+  }
+
+  // OutDAGFile << "module_name,start_comp,end_comp\n";
+  // OutTopoComp << "module_name,comp_id,comp_priority\n";
+  // OutBlockAdditional << "module_name,block_id,comp_id\n";
+
+  // TODO: module name is going to be the same across all components, just grab
+  // an arbitraty one and precompute it here
+  std::string ModuleName = "";
+
+  // Write out the DAG
+  for (unsigned u = 0; u < DAGAdjacency.size(); u++) {
+    unsigned StartComp = u;
+
+    std::vector<int> const &Neighbours = DAGAdjacency[u];
+
+    for (unsigned BlockID = 0; BlockID < CompIDs.size(); BlockID++) {
+      if (CompIDs[BlockID] == StartComp) {
+        ModuleName = BlockStats[BlockID].ModuleName;
+
+        break;
+      }
+    }
+
+    for (unsigned v = 0; v < Neighbours.size(); v++) {
+      int EndComp = Neighbours[v];
+
+      OutDAGFile << ModuleName << "," << StartComp << "," << EndComp << "\n";
+    }
+  }
+
+  // Write out the topologically sorted components
+  for (unsigned i = 0; i < TopoSortedComp.size(); i++) {
+    unsigned Comp = TopoSortedComp[i];
+
+    for (unsigned BlockID = 0; BlockID < CompIDs.size(); BlockID++) {
+      if (CompIDs[BlockID] == Comp) {
+        ModuleName = BlockStats[BlockID].ModuleName;
+
+        break;
+      }
+    }
+
+    OutTopoComp << ModuleName << "," << Comp << "," << i << "\n";
+  }
+
+  for (unsigned BlockID = 0; BlockID < CompIDs.size(); BlockID++) {
+    unsigned CompID = CompIDs[BlockID];
+    ExtBBStats BlockStat = BlockStats[BlockID];
+
+    // TODO: unsure if cycle count already adjusted for frequency, probably not?
+    OutBlockAdditional << ModuleName << "," << BlockID << "," << CompID << ","
+                       << BlockStat.Cycles * BlockStat.Freq << "\n";
+
+    // TODO: fix all this trash
+    ExtBBStats OutputStatsBB;
+    OutputStatsBB.Cycles = BlockStat.Cycles * BlockStat.Freq;
+    OutputStatsBB.Freq = BlockStat.Freq;
+    OutputStatsBB.GlobalFreq = BlockStat.GlobalFreq;
+    OutputStatsBB.Loads = BlockStat.Loads * BlockStat.Freq;
+    OutputStatsBB.Stores = BlockStat.Stores * BlockStat.Freq;
+    OutputStatsBB.Spills = BlockStat.Spills * BlockStat.Freq;
+    OutputStatsBB.Reloads = BlockStat.Reloads * BlockStat.Freq;
+    OutputStatsBB.Reads = BlockStat.Reads * BlockStat.Freq;
+    OutputStatsBB.Writes = BlockStat.Writes * BlockStat.Freq;
+    OutputStatsBB.InstrCount = BlockStat.InstrCount * BlockStat.Freq;
+    OutputStatsBB.IntInstrCount = BlockStat.IntInstrCount * BlockStat.Freq;
+    OutputStatsBB.FloatInstrCount = BlockStat.FloatInstrCount * BlockStat.Freq;
+    OutputStatsBB.BranchInstrCount =
+        BlockStat.BranchInstrCount * BlockStat.Freq;
+    OutputStatsBB.LoadStoreInstrCount =
+        BlockStat.LoadStoreInstrCount * BlockStat.Freq;
+    OutputStatsBB.FunctionCalls = BlockStat.FunctionCalls * BlockStat.Freq;
+    OutputStatsBB.ContextSwitches = BlockStat.ContextSwitches * BlockStat.Freq;
+    OutputStatsBB.MulAccess = BlockStat.MulAccess * BlockStat.Freq;
+    OutputStatsBB.FPAccess = BlockStat.FPAccess * BlockStat.Freq;
+    OutputStatsBB.IntALUAccess = BlockStat.IntALUAccess * BlockStat.Freq;
+    OutputStatsBB.IntRegfileReads = BlockStat.IntRegfileReads * BlockStat.Freq;
+    OutputStatsBB.FloatRegfileReads =
+        BlockStat.FloatRegfileReads * BlockStat.Freq;
+    OutputStatsBB.IntRegfileWrites =
+        BlockStat.IntRegfileWrites * BlockStat.Freq;
+    OutputStatsBB.FloatRegfileWrites =
+        BlockStat.FloatRegfileWrites * BlockStat.Freq;
+    OutputStatsBB.Name = BlockStat.Name;
+    OutputStatsBB.FunctionName = BlockStat.FunctionName;
+    OutputStatsBB.ModuleName = BlockStat.ModuleName;
+
+    // TODO: This blockID is the per-basic block one, not the global one?, have
+    // to fix?
+    OutMBB << extOutputBBStats(OutputStatsBB, BlockID).str().c_str() << "\n";
+
+    LLVM_DEBUG(dbgs() << "Machine basic block ID " << BlockID << ", name "
+                      << BlockStat.Name << " had cycles " << BlockStat.Cycles
+                      << ", frequency " << BlockStat.Freq
+                      << ", loads: " << OutputStatsBB.Loads
+                      << ", stores: " << OutputStatsBB.Stores << "\n");
+  }
+
   OutFile.close();
+  BlockOutFile.close();
+  OutCFGFile.close();
+  OutBlockAdditional.close();
+  OutTopoComp.close();
+  OutDAGFile.close();
+  OutMBB.close();
 }
 
 void ExtPathCollector::addMachineBlockEdgeLocal(const std::string &FunctionName,
@@ -834,14 +1092,18 @@ void ExtPathCollector::addMachineBlockEdgeLocal(const std::string &FunctionName,
 }
 
 void ExtPathCollector::addMachineFunctionEdge(const std::string &Caller,
+                                              unsigned LocalCallerBlock,
                                               const std::string &Callee) {
   registerFunction(Caller);
   registerFunction(Callee);
+  unsigned GlobalCallerBlock = registerBasicBlock(Caller, LocalCallerBlock);
 
   unsigned CallerID = FunctionIDs[Caller];
   unsigned CalleeID = FunctionIDs[Callee];
 
   FunctionMetadata[CallerID].Successors.push_back(CalleeID);
+  FunctionMetadata[CallerID].CallerBlockToFunctionID.push_back(
+      std::pair<unsigned, unsigned>(GlobalCallerBlock, CalleeID));
 }
 
 unsigned ExtPathCollector::registerFunction(const std::string &FunctionName) {
@@ -1067,19 +1329,6 @@ bool RegisterAccessPreRAPass::runOnMachineFunction(MachineFunction &MF) {
   LLVM_DEBUG(dbgs() << "Function " << MFName << ", has profile data: "
                     << FunctionHasProfileData << "\n");
 
-  std::error_code EC;
-  raw_fd_ostream OutFile("MBB_stats.csv", EC, sys::fs::OF_Append);
-
-  // write header information into the file
-  if (Processed == 0) {
-    OutFile << extBBHeaders().c_str() << "\n";
-  }
-
-  if (EC) {
-    errs() << "Error opening file: " << EC.message() << "\n";
-    return false;
-  }
-
   PC.registerFunction(MFName);
 
   const TargetSubtargetInfo &TSI = MF.getSubtarget();
@@ -1166,6 +1415,8 @@ bool RegisterAccessPreRAPass::runOnMachineFunction(MachineFunction &MF) {
     BlockStat.Name = MBB.getName().str();
     BlockStat.FunctionName = MFName;
     BlockStat.ModuleName = ModuleName;
+
+    unsigned UniqueBlockID = PC.getUniqueBlockIdentifier(MFName, BlockID);
 
     const BasicBlock *BB = MBB.getBasicBlock();
     if (BB != nullptr) {
@@ -1271,7 +1522,7 @@ bool RegisterAccessPreRAPass::runOnMachineFunction(MachineFunction &MF) {
               std::string CalleeName = F->getName().str();
               std::string OurName = MF.getFunction().getName().str();
 
-              PC.addMachineFunctionEdge(OurName, CalleeName);
+              PC.addMachineFunctionEdge(OurName, BlockID, CalleeName);
               // LLVM_DEBUG(dbgs() << "Adding function edge between: " <<
               // OurName << ", and " << CalleeName << "\n");
             }
@@ -1361,47 +1612,6 @@ bool RegisterAccessPreRAPass::runOnMachineFunction(MachineFunction &MF) {
                         << BlockStat.Name << ", " << BlockStat.FunctionName
                         << ", " << BlockStat.ModuleName << "\n");
     }
-
-    ExtBBStats OutputStatsBB;
-    OutputStatsBB.Cycles = BlockStat.Cycles * BlockStat.Freq;
-    OutputStatsBB.Freq = BlockStat.Freq;
-    OutputStatsBB.GlobalFreq = BlockStat.GlobalFreq;
-    OutputStatsBB.Loads = BlockStat.Loads * BlockStat.Freq;
-    OutputStatsBB.Stores = BlockStat.Stores * BlockStat.Freq;
-    OutputStatsBB.Spills = BlockStat.Spills * BlockStat.Freq;
-    OutputStatsBB.Reloads = BlockStat.Reloads * BlockStat.Freq;
-    OutputStatsBB.Reads = BlockStat.Reads * BlockStat.Freq;
-    OutputStatsBB.Writes = BlockStat.Writes * BlockStat.Freq;
-    OutputStatsBB.InstrCount = BlockStat.InstrCount * BlockStat.Freq;
-    OutputStatsBB.IntInstrCount = BlockStat.IntInstrCount * BlockStat.Freq;
-    OutputStatsBB.FloatInstrCount = BlockStat.FloatInstrCount * BlockStat.Freq;
-    OutputStatsBB.BranchInstrCount =
-        BlockStat.BranchInstrCount * BlockStat.Freq;
-    OutputStatsBB.LoadStoreInstrCount =
-        BlockStat.LoadStoreInstrCount * BlockStat.Freq;
-    OutputStatsBB.FunctionCalls = BlockStat.FunctionCalls * BlockStat.Freq;
-    OutputStatsBB.ContextSwitches = BlockStat.ContextSwitches * BlockStat.Freq;
-    OutputStatsBB.MulAccess = BlockStat.MulAccess * BlockStat.Freq;
-    OutputStatsBB.FPAccess = BlockStat.FPAccess * BlockStat.Freq;
-    OutputStatsBB.IntALUAccess = BlockStat.IntALUAccess * BlockStat.Freq;
-    OutputStatsBB.IntRegfileReads = BlockStat.IntRegfileReads * BlockStat.Freq;
-    OutputStatsBB.FloatRegfileReads =
-        BlockStat.FloatRegfileReads * BlockStat.Freq;
-    OutputStatsBB.IntRegfileWrites =
-        BlockStat.IntRegfileWrites * BlockStat.Freq;
-    OutputStatsBB.FloatRegfileWrites =
-        BlockStat.FloatRegfileWrites * BlockStat.Freq;
-    OutputStatsBB.Name = BlockStat.Name;
-    OutputStatsBB.FunctionName = BlockStat.FunctionName;
-    OutputStatsBB.ModuleName = BlockStat.ModuleName;
-
-    OutFile << extOutputBBStats(OutputStatsBB).str().c_str() << "\n";
-
-    LLVM_DEBUG(dbgs() << "Machine basic block ID " << BlockID << ", name "
-                      << BlockStat.Name << " had cycles " << BlockStat.Cycles
-                      << ", frequency " << BlockStat.Freq
-                      << ", loads: " << OutputStatsBB.Loads
-                      << ", stores: " << OutputStatsBB.Stores << "\n");
 
     BlockID++;
   }

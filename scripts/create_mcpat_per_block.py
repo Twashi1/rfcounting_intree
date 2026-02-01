@@ -1,9 +1,9 @@
-# TODO: intended to create mcpat input files per dvs calling point
-# for now, we're doing this per path, we assume in future the per-path will be replaced by something per calling point
 import utils
 import argparse
 import pandas as pd
 import os
+
+# TODO: horrendous amount of code duplication
 
 
 def main():
@@ -36,9 +36,6 @@ def main():
     loaded_stats = utils.load_standard_stat_file(args.stats)
     loaded_cfg = utils.load_cfg(args.input_cfg)
 
-    # TODO: terrible path index approximate
-    i = 0
-
     # Generally not a good pattern, but whatever
     for _, row in loaded_stats.iterrows():
         row_data = row.to_dict()
@@ -47,6 +44,13 @@ def main():
         path = args.output_dir.rstrip("/") + "/"
 
         os.makedirs(path, exist_ok=True)
+
+        if "block_id" not in row_data:
+            raise KeyError(
+                "Expected block_id in mcpat row data, given DVS calling point data instead of per machine block?"
+            )
+
+        i = row_data["block_id"]
 
         path += args.output_xml
         path += f"_idx{i:04d}"
@@ -62,8 +66,6 @@ def main():
         utils.modify_xml(
             args.input_xml, path + f"_high.xml", row_data, loaded_cfg, "high"
         )
-
-        i += 1
 
 
 if __name__ == "__main__":

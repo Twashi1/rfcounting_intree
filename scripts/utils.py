@@ -244,6 +244,7 @@ def get_stats_df_mbbs(csv_path: str, module_index: int) -> pd.DataFrame:
 
     # df[cols] = df[cols].astype(float).round().astype("Int64")
     df = stats_df_estimate_missing_cols(df)
+    df["block_id"] = df["block_id"].astype(int)
 
     return df
 

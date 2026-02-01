@@ -3,15 +3,15 @@
 
 #include "llvm/CodeGen/MachineFunctionPass.h"
 
-#include <atomic>
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
+#include <map>
 #include <mutex>
+#include <set>
 #include <sstream>
 #include <string>
 #include <unordered_map>
-#include <set>
-#include <map>
 #include <vector>
 
 namespace llvm {
@@ -51,7 +51,8 @@ struct ExtBlockEdgeData {
   std::string FunctionStart;
   unsigned BlockIDEnd;
   std::string FunctionEnd;
-  bool IsFunctionEdge; // Signifies if this edge is between two different functions
+  bool IsFunctionEdge; // Signifies if this edge is between two different
+                       // functions
 };
 
 bool extIsProbablyFloatingInstruction(const MachineInstr &MI,
@@ -74,6 +75,8 @@ std::string extBBHeaders();
 struct ExtFunctionMetadata {
   // FunctionIDs of successors
   std::vector<unsigned> Successors;
+  // TODO: terrible structure, just make it match up with successors
+  std::vector<std::pair<unsigned, unsigned>> CallerBlockToFunctionID;
   unsigned EntryBasicBlock;
   std::string FunctionName;
 };
@@ -81,8 +84,8 @@ struct ExtFunctionMetadata {
 struct ExtPathCollector {
   std::unordered_map<std::string, unsigned> FunctionIDs;
   std::unordered_map<uint64_t, unsigned> BlockIDs;
-  // NOTE: map instead of unordered map because no hash function for pair by default
-  // and I don't want to implement one
+  // NOTE: map instead of unordered map because no hash function for pair by
+  // default and I don't want to implement one
   std::map<std::pair<unsigned, unsigned>, ExtBlockEdgeData> BlockEdgeData;
   std::vector<ExtBBStats> BlockStats;
   std::vector<ExtFunctionMetadata> FunctionMetadata;
@@ -113,9 +116,11 @@ struct ExtPathCollector {
   std::vector<std::vector<unsigned>> PotentialExitBlocks;
 
   void addMachineFunctionEdge(const std::string &Caller,
+                              unsigned LocalCallerBlock,
                               const std::string &Callee);
   void addMachineBlockEdgeLocal(const std::string &FunctionName,
-                                unsigned LocalParent, unsigned LocalSuccessor, double Probability);
+                                unsigned LocalParent, unsigned LocalSuccessor,
+                                double Probability);
   unsigned registerFunction(const std::string &FunctionName);
   unsigned registerBasicBlock(const std::string &FunctionName,
                               unsigned LocalBlockID);

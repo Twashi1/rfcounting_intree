@@ -20,3 +20,6 @@ McPAT_monolithic/
 # Exclude mcpat_inputs since full of generated files, but keep the base file we adjust to generate our inputs
 mcpat_inputs/
 !mcpat_inputs/Alpha21364.xml
+
+# Exclude mcpat_out which is full of output files
+mcpat_out/
