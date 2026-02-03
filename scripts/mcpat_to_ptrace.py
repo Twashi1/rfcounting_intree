@@ -643,6 +643,33 @@ def main():
         args.configs,
     )
 
+    with open("HeatData.csv", "w") as f:
+        f.write("block_id,")
+
+        for i, col in enumerate(HOTSPOT_FLOORPLAN):
+            if i > 0:
+                f.write(",")
+
+            f.write(col)
+
+        f.write("\n")
+
+        for block_id, heatmap in all_block_heats.items():
+            f.write(f"{block_id},")
+
+            for i, col in enumerate(HOTSPOT_FLOORPLAN):
+                if i > 0:
+                    f.write(",")
+
+                res = heatmap.get(col, None)
+
+                if res is None:
+                    f.write("na")
+                else:
+                    f.write(f"{res:.3f}")
+
+            f.write("\n")
+
     # TODO: output all block heats, or at least delta temp for a given path
     print(all_block_heats)
 
