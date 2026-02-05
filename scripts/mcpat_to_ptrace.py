@@ -83,6 +83,17 @@ def mcpat_get_unit_stats(name: str, text: str) -> dict:
     return fields
 
 
+def get_static_dynamic_power(unit_stats: dict, keys: list) -> float:
+    total = 0.0
+
+    for key in keys:
+        total += unit_stats[key]["Runtime Dynamic"]
+        total += unit_stats[key]["Gate Leakage"]
+        total += unit_stats[key]["Subthreshold Leakage"]
+
+    return total
+
+
 def mcpat_to_dict(mcpat_out_file: str) -> dict:
     text = ""
 
@@ -119,13 +130,6 @@ def mcpat_to_dict(mcpat_out_file: str) -> dict:
         stats = mcpat_get_unit_stats(unit, text)
         unit_stats[unit] = stats
 
-    # TODO: make this a dedicated function, deal with multiple sum behaviour more explicitly
-    unit_power = lambda key: (
-        unit_stats[key]["Runtime Dynamic"]
-        if isinstance(key, str)
-        else sum(unit_stats[i]["Runtime Dynamic"] for i in key)
-    )
-
     # Now map unit stats to hotspot
     # Assuming Alpha EV6 floorplan
     # TODO: Alpha EV6 seems to be different to the Alpha21364.xml we use as our baseline?
@@ -133,39 +137,45 @@ def mcpat_to_dict(mcpat_out_file: str) -> dict:
     # TODO: mathematical correctness of averaging? shouldn't we consider it to just be one component with less heat spread?
     # TODO: unsure about which McPAT components to use
     hotspot_mapping = {
-        "L2_left": unit_power("L2") / 3.0,
-        "L2": unit_power("L2") / 3.0,
-        "L2_right": unit_power("L2") / 3.0,
-        "Icache": unit_power("Instruction Cache"),
-        "Dcache": unit_power("Data Cache"),
-        "Bpred_0": unit_power("Branch Predictor") / 3.0,
-        "Bpred_1": unit_power("Branch Predictor") / 3.0,
-        "Bpred_2": unit_power("Branch Predictor") / 3.0,
-        "DTB_0": unit_power("FP Front End RAT") / 3.0,
-        "DTB_1": unit_power("Dtlb") / 3.0,
-        "DTB_2": unit_power("Dtlb") / 3.0,
+        "L2_left": get_static_dynamic_power(["L2"]) / 3.0,
+        "L2": get_static_dynamic_power(["L2"]) / 3.0,
+        "L2_right": get_static_dynamic_power(["L2"]) / 3.0,
+        "Icache": get_static_dynamic_power(["Instruction Cache"]),
+        "Dcache": get_static_dynamic_power(["Data Cache"]),
+        "Bpred_0": get_static_dynamic_power(["Branch Predictor"]) / 3.0,
+        "Bpred_1": get_static_dynamic_power(["Branch Predictor"]) / 3.0,
+        "Bpred_2": get_static_dynamic_power(["Branch Predictor"]) / 3.0,
+        "DTB_0": get_static_dynamic_power(["FP Front End RAT"]) / 3.0,
+        "DTB_1": get_static_dynamic_power(["Dtlb"]) / 3.0,
+        "DTB_2": get_static_dynamic_power(["Dtlb"]) / 3.0,
         # NOTE: averaging these ones over the Add and Mul units
-        "FPAdd_0": unit_power("Floating Point Unit") / 4.0,
-        "FPAdd_1": unit_power("Floating Point Unit") / 4.0,
-        "FPReg_0": unit_power("Floating Point RF") / 4.0,
-        "FPReg_1": unit_power("Floating Point RF") / 4.0,
-        "FPReg_2": unit_power("Floating Point RF") / 4.0,
-        "FPReg_3": unit_power("Floating Point RF") / 4.0,
-        "FPMul_0": unit_power("Floating Point Unit") / 4.0,
-        "FPMul_1": unit_power("Floating Point Unit") / 4.0,
-        "FPMap_0": unit_power(("FP Front End RAT", "FP Retire RAT", "FP Free List"))
+        "FPAdd_0": get_static_dynamic_power(["Floating Point Unit"]) / 4.0,
+        "FPAdd_1": get_static_dynamic_power(["Floating Point Unit"]) / 4.0,
+        "FPReg_0": get_static_dynamic_power(["Floating Point RF"]) / 4.0,
+        "FPReg_1": get_static_dynamic_power(["Floating Point RF"]) / 4.0,
+        "FPReg_2": get_static_dynamic_power(["Floating Point RF"]) / 4.0,
+        "FPReg_3": get_static_dynamic_power(["Floating Point RF"]) / 4.0,
+        "FPMul_0": get_static_dynamic_power(["Floating Point Unit"]) / 4.0,
+        "FPMul_1": get_static_dynamic_power(["Floating Point Unit"]) / 4.0,
+        "FPMap_0": get_static_dynamic_power(
+            ["FP Front End RAT", "FP Retire RAT", "FP Free List"]
+        )
         / 2.0,
-        "FPMap_1": unit_power(("FP Front End RAT", "FP Retire RAT", "FP Free List"))
+        "FPMap_1": get_static_dynamic_power(
+            ["FP Front End RAT", "FP Retire RAT", "FP Free List"]
+        )
         / 2.0,
-        "IntMap": unit_power(("Int Front End RAT", "Int Retire RAT", "Free List")),
-        "IntQ": unit_power("Instruction Window"),
-        "IntReg_0": unit_power("Integer RF") / 2.0,
-        "IntReg_1": unit_power("Integer RF") / 2.0,
-        "IntExec": unit_power("Integer ALU"),
-        "FPQ": unit_power("FP Instruction Window"),
-        "LdStQ": unit_power(("LoadQ", "StoreQ")),
-        "ITB_0": unit_power("Itlb") / 2.0,
-        "ITB_1": unit_power("Itlb") / 2.0,
+        "IntMap": get_static_dynamic_power(
+            ["Int Front End RAT", "Int Retire RAT", "Free List"]
+        ),
+        "IntQ": get_static_dynamic_power(["Instruction Window"]),
+        "IntReg_0": get_static_dynamic_power(["Integer RF"]) / 2.0,
+        "IntReg_1": get_static_dynamic_power(["Integer RF"]) / 2.0,
+        "IntExec": get_static_dynamic_power(["Integer ALU"]),
+        "FPQ": get_static_dynamic_power(["FP Instruction Window"]),
+        "LdStQ": get_static_dynamic_power(["LoadQ", "StoreQ"]),
+        "ITB_0": get_static_dynamic_power(["Itlb"]) / 2.0,
+        "ITB_1": get_static_dynamic_power(["Itlb"]) / 2.0,
     }
 
     return hotspot_mapping
