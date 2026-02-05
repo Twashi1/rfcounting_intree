@@ -136,6 +136,18 @@ def load_adjacency_list_cfg(path: str, module_index: int) -> pd.DataFrame:
     return df
 
 
+def load_voltage_levels(path: str) -> pd.DataFrame:
+    csv_parts = load_multipart_csv(path)
+
+    if len(csv_parts) == 0:
+        raise ValueError("Voltage levels were not initialised")
+
+    df = pd.DataFrame(csv_parts[0])
+    df["block_id"] = df["block_id"].astype(int)
+
+    return df
+
+
 def load_adjacency_list_dag(path: str, module_index: int) -> pd.DataFrame:
     csv_parts = load_multipart_csv(path)
     module_data = csv_parts[module_index]
@@ -170,6 +182,33 @@ def load_block_additional(path: str, module_index: int) -> pd.DataFrame:
     df["execution_cycles"] = df["execution_cycles"].astype(float)
 
     return df
+
+
+def get_block_ids(
+    module_index: int, additional_data: str = "PerBlockAdditional.csv"
+) -> list:
+    """
+    Returns the block ids given in PerBlockAdditional.csv
+    """
+    block_df = load_block_additional(additional_data, module_index)
+
+    return block_df["block_id"].tolist()
+
+
+def set_voltages(voltage_file: str, voltages: list, block_ids: list):
+    # TODO: validation on voltage levels
+    if len(voltages) != len(block_ids):
+        raise ValueError("Expected list of voltages and block ids to be same length")
+
+    voltage_df = pd.DataFrame()
+    voltage_df["voltage_level"] = voltages
+    voltage_df["block_id"] = block_ids
+
+    voltage_df.to_csv(voltage_file, index=False)
+
+
+def init_voltages(voltage_file: str, voltage_level: str, block_ids: list):
+    set_voltages(voltage_file, [voltage_level for _ in block_ids], block_ids)
 
 
 def change_xml_property(

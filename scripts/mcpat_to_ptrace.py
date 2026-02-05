@@ -7,6 +7,7 @@ import pandas as pd
 import os
 import shutil
 import subprocess
+import initial_voltages
 from collections import defaultdict, deque
 
 AGGREGATE_METHOD_WORST_CASE = "hottest"
@@ -54,7 +55,7 @@ def celsius_to_kelvin(celsius: float):
 # TODO: "name" is actually name prefix
 def mcpat_get_unit_stats(name: str, text: str) -> dict:
     # Note sometimes a colon, sometimes not
-    pattern = rf"\s*{re.escape(name)}.*\n(\s+.+\s=\s.+\n)+"
+    pattern = rf"\s*{re.escape(name)}.*\n((?:.+\s*=\s*.+\n)+)"
 
     m = re.search(pattern, text, re.MULTILINE)
 
@@ -64,8 +65,6 @@ def mcpat_get_unit_stats(name: str, text: str) -> dict:
     block = m.group(1)
     fields = {}
 
-    # print(f"{name=} {block=}")
-
     for key in [
         "Area",
         "Peak Dynamic",
@@ -73,7 +72,7 @@ def mcpat_get_unit_stats(name: str, text: str) -> dict:
         "Gate Leakage",
         "Runtime Dynamic",
     ]:
-        fm = re.search(rf"^\s+{key}\s*=\s*(\S+)\s.+$", block)
+        fm = re.search(rf"\s+{key}\s*=\s*(\S+)\s.+\n", block, re.MULTILINE)
         if fm:
             # print(f"{fm.group(1)=}")
             fields[key] = float(fm.group(1))
@@ -137,45 +136,45 @@ def mcpat_to_dict(mcpat_out_file: str) -> dict:
     # TODO: mathematical correctness of averaging? shouldn't we consider it to just be one component with less heat spread?
     # TODO: unsure about which McPAT components to use
     hotspot_mapping = {
-        "L2_left": get_static_dynamic_power(["L2"]) / 3.0,
-        "L2": get_static_dynamic_power(["L2"]) / 3.0,
-        "L2_right": get_static_dynamic_power(["L2"]) / 3.0,
-        "Icache": get_static_dynamic_power(["Instruction Cache"]),
-        "Dcache": get_static_dynamic_power(["Data Cache"]),
-        "Bpred_0": get_static_dynamic_power(["Branch Predictor"]) / 3.0,
-        "Bpred_1": get_static_dynamic_power(["Branch Predictor"]) / 3.0,
-        "Bpred_2": get_static_dynamic_power(["Branch Predictor"]) / 3.0,
-        "DTB_0": get_static_dynamic_power(["FP Front End RAT"]) / 3.0,
-        "DTB_1": get_static_dynamic_power(["Dtlb"]) / 3.0,
-        "DTB_2": get_static_dynamic_power(["Dtlb"]) / 3.0,
+        "L2_left": get_static_dynamic_power(unit_stats, ["L2"]) / 3.0,
+        "L2": get_static_dynamic_power(unit_stats, ["L2"]) / 3.0,
+        "L2_right": get_static_dynamic_power(unit_stats, ["L2"]) / 3.0,
+        "Icache": get_static_dynamic_power(unit_stats, ["Instruction Cache"]),
+        "Dcache": get_static_dynamic_power(unit_stats, ["Data Cache"]),
+        "Bpred_0": get_static_dynamic_power(unit_stats, ["Branch Predictor"]) / 3.0,
+        "Bpred_1": get_static_dynamic_power(unit_stats, ["Branch Predictor"]) / 3.0,
+        "Bpred_2": get_static_dynamic_power(unit_stats, ["Branch Predictor"]) / 3.0,
+        "DTB_0": get_static_dynamic_power(unit_stats, ["FP Front End RAT"]) / 3.0,
+        "DTB_1": get_static_dynamic_power(unit_stats, ["Dtlb"]) / 3.0,
+        "DTB_2": get_static_dynamic_power(unit_stats, ["Dtlb"]) / 3.0,
         # NOTE: averaging these ones over the Add and Mul units
-        "FPAdd_0": get_static_dynamic_power(["Floating Point Unit"]) / 4.0,
-        "FPAdd_1": get_static_dynamic_power(["Floating Point Unit"]) / 4.0,
-        "FPReg_0": get_static_dynamic_power(["Floating Point RF"]) / 4.0,
-        "FPReg_1": get_static_dynamic_power(["Floating Point RF"]) / 4.0,
-        "FPReg_2": get_static_dynamic_power(["Floating Point RF"]) / 4.0,
-        "FPReg_3": get_static_dynamic_power(["Floating Point RF"]) / 4.0,
-        "FPMul_0": get_static_dynamic_power(["Floating Point Unit"]) / 4.0,
-        "FPMul_1": get_static_dynamic_power(["Floating Point Unit"]) / 4.0,
+        "FPAdd_0": get_static_dynamic_power(unit_stats, ["Floating Point Unit"]) / 4.0,
+        "FPAdd_1": get_static_dynamic_power(unit_stats, ["Floating Point Unit"]) / 4.0,
+        "FPReg_0": get_static_dynamic_power(unit_stats, ["Floating Point RF"]) / 4.0,
+        "FPReg_1": get_static_dynamic_power(unit_stats, ["Floating Point RF"]) / 4.0,
+        "FPReg_2": get_static_dynamic_power(unit_stats, ["Floating Point RF"]) / 4.0,
+        "FPReg_3": get_static_dynamic_power(unit_stats, ["Floating Point RF"]) / 4.0,
+        "FPMul_0": get_static_dynamic_power(unit_stats, ["Floating Point Unit"]) / 4.0,
+        "FPMul_1": get_static_dynamic_power(unit_stats, ["Floating Point Unit"]) / 4.0,
         "FPMap_0": get_static_dynamic_power(
-            ["FP Front End RAT", "FP Retire RAT", "FP Free List"]
+            unit_stats, ["FP Front End RAT", "FP Retire RAT", "FP Free List"]
         )
         / 2.0,
         "FPMap_1": get_static_dynamic_power(
-            ["FP Front End RAT", "FP Retire RAT", "FP Free List"]
+            unit_stats, ["FP Front End RAT", "FP Retire RAT", "FP Free List"]
         )
         / 2.0,
         "IntMap": get_static_dynamic_power(
-            ["Int Front End RAT", "Int Retire RAT", "Free List"]
+            unit_stats, ["Int Front End RAT", "Int Retire RAT", "Free List"]
         ),
-        "IntQ": get_static_dynamic_power(["Instruction Window"]),
-        "IntReg_0": get_static_dynamic_power(["Integer RF"]) / 2.0,
-        "IntReg_1": get_static_dynamic_power(["Integer RF"]) / 2.0,
-        "IntExec": get_static_dynamic_power(["Integer ALU"]),
-        "FPQ": get_static_dynamic_power(["FP Instruction Window"]),
-        "LdStQ": get_static_dynamic_power(["LoadQ", "StoreQ"]),
-        "ITB_0": get_static_dynamic_power(["Itlb"]) / 2.0,
-        "ITB_1": get_static_dynamic_power(["Itlb"]) / 2.0,
+        "IntQ": get_static_dynamic_power(unit_stats, ["Instruction Window"]),
+        "IntReg_0": get_static_dynamic_power(unit_stats, ["Integer RF"]) / 2.0,
+        "IntReg_1": get_static_dynamic_power(unit_stats, ["Integer RF"]) / 2.0,
+        "IntExec": get_static_dynamic_power(unit_stats, ["Integer ALU"]),
+        "FPQ": get_static_dynamic_power(unit_stats, ["FP Instruction Window"]),
+        "LdStQ": get_static_dynamic_power(unit_stats, ["LoadQ", "StoreQ"]),
+        "ITB_0": get_static_dynamic_power(unit_stats, ["Itlb"]) / 2.0,
+        "ITB_1": get_static_dynamic_power(unit_stats, ["Itlb"]) / 2.0,
     }
 
     return hotspot_mapping
@@ -547,6 +546,18 @@ def main():
     )
     parser.add_argument("--mcpat_outs", help="The path to the mcpat output directory")
     parser.add_argument(
+        "--initial_temp_kelvin",
+        type=float,
+        default=273.15 + 75.0,
+        help="Initial temperatures in kelvin when we cannot find previous block",
+    )
+    parser.add_argument(
+        "--voltage_levels_file",
+        type=str,
+        default="VoltageLevels.csv",
+        help="Voltage level to use per basic block",
+    )
+    parser.add_argument(
         "--configs",
         type=str,
         default="./scripts/configs.cfg",
@@ -589,6 +600,12 @@ def main():
         default="TopoComp.csv",
         help="Path to topologically sorted components file",
     )
+    parser.add_argument(
+        "--voltage_levels",
+        type=str,
+        default="VoltageLevels.csv",
+        help="Path to voltage levels file",
+    )
     args = parser.parse_args()
 
     mcpat_df = load_folder_mcpat(args.mcpat_outs, args.file_prefix)
@@ -599,6 +616,13 @@ def main():
     additional_block = utils.load_block_additional(
         args.block_additional, args.module_index
     )
+    voltage_levels = utils.load_voltage_levels(args.voltage_levels_file)
+
+    mcpat_df_filtered = mcpat_df.loc[
+        mcpat_df.set_index(["block_id", "voltage"]).index.isin(
+            voltage_levels.set_index(["block_id", "voltage_level"]).index
+        )
+    ]
 
     # TODO: current goal, iterate over the the nodes, computing the final temperature, given the prev temperature(s)
     # 1. must have topologically sorted nodes
@@ -641,8 +665,10 @@ def main():
     # clock_rate: float,
     # config_file: str,
 
+    print(mcpat_df_filtered)
+
     all_block_heats = calculate_all_heat(
-        mcpat_df,
+        mcpat_df_filtered,
         approx_sorted_nodes,
         global_adj,
         additional_block,

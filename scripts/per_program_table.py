@@ -95,10 +95,24 @@ def main():
     df["temp_area_weighted_mean"] = (
         df[core_cols].mul(areas[core_cols], axis=1).sum(axis=1) / areas[core_cols].sum()
     )
+    df["temp_area_weighted_mean"] = df["temp_area_weighted_mean"].round(2)
+    df["temp_mean"] = df["temp_mean"].round(2)
 
-    df = df.merge(block_additional, on="block_id", how="inner")
+    df = df.merge(
+        block_additional[["block_id", "execution_cycles"]], on="block_id", how="inner"
+    )
 
-    df.to_csv(f"{args.name}_ProgramHeat.csv", index=True)
+    df = df[
+        [
+            "block_id",
+            "temp_mean",
+            "temp_max",
+            "temp_area_weighted_mean",
+            "execution_cycles",
+        ]
+    ]
+
+    df.to_csv(f"{args.name}_ProgramHeat.csv", index=False)
 
 
 if __name__ == "__main__":
