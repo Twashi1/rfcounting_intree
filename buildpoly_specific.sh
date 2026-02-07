@@ -1,3 +1,5 @@
+#!/usr/bin/env sh
+
 mkdir -p objects
 rm -f MBB_stats.csv CritPath.csv reg_stats.csv PathBlocks.csv CFG.csv TopoComp.csv PerBlockAdditional.csv DAG.csv
 

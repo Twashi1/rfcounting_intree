@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 polybench_path=$1
 test_name=$(basename "$1" .c)
 

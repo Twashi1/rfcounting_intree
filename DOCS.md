@@ -2,11 +2,11 @@
 
 ## Shell scripts
 
-- `sh ./buildscript.sh` - Build LLVM-project
-- `bash ./buildpoly_specific.sh <polybench source>` - Build and run a specific PolyBench test.
+- `buildscript.sh` - Build LLVM-project
+- `buildpoly_specific.sh <polybench source>` - Build and run a specific PolyBench test.
     - Example input: `./buildpoly_specific.sh ./PolyBenchC-4.2.1/linear-algebra/blas/gemm/gemm.c`
-- `sh ./convert_stat_files.sh <output_filename>` - Convert output filenames to standard stats with the given output name
-- `sh ./run_mcpat_all.sh <input_folder>` - Runs a folder of McPAT XML inputs through McPAT to get resulting power
+- `convert_stat_files.sh <output_filename>` - Convert output filenames to standard stats with the given output name
+- `run_mcpat_all.sh <input_folder>` - Runs a folder of McPAT XML inputs through McPAT to get resulting power
 
 ## Statistics
 

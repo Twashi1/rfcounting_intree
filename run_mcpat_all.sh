@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 
 indir="$1"
 last_dir=$(basename "${indir%/}")

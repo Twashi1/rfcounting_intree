@@ -23,3 +23,6 @@ mcpat_inputs/
 
 # Exclude mcpat_out which is full of output files
 mcpat_out/
+
+# Exclude accuracy summary, contains stats that should be generated for testing, not necessary to keep
+accuracy_summary/
