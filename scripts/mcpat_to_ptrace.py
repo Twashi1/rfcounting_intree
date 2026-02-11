@@ -144,7 +144,7 @@ def mcpat_to_dict(mcpat_out_file: str) -> dict:
         "Bpred_0": get_static_dynamic_power(unit_stats, ["Branch Predictor"]) / 3.0,
         "Bpred_1": get_static_dynamic_power(unit_stats, ["Branch Predictor"]) / 3.0,
         "Bpred_2": get_static_dynamic_power(unit_stats, ["Branch Predictor"]) / 3.0,
-        "DTB_0": get_static_dynamic_power(unit_stats, ["FP Front End RAT"]) / 3.0,
+        "DTB_0": get_static_dynamic_power(unit_stats, ["Dtlb"]) / 3.0,
         "DTB_1": get_static_dynamic_power(unit_stats, ["Dtlb"]) / 3.0,
         "DTB_2": get_static_dynamic_power(unit_stats, ["Dtlb"]) / 3.0,
         # NOTE: averaging these ones over the Add and Mul units
@@ -230,12 +230,19 @@ def get_hotspot_temp(
     hotspot_ptrace: dict,
     execution_time: float,
     config_file: str,
+    hotspot_config_file: str,
     initial_heat: dict,
+    heatsink_offset: float,
 ) -> dict:
     # TODO: construct input from hotspot_ptrace (dataframe series, or turn to dict?)
     # TODO: assume ttrace is a file path to use as input, initial_temp is numerical (kelvin)
     # TODO: call hotspot binary with the inputs
     # TODO: load outputs as ttrace output path?
+
+    # Not sure how HotSpot works, so we're going to provide it 10 samples of the same power
+    # With the sampling interval being 1/10th of the execution time
+    sample_count = 10
+
     with open("./hotspot_files/gcc.ptrace", "w") as f:
         # Write in keys
         i = 0
@@ -252,47 +259,59 @@ def get_hotspot_temp(
 
         f.write("\n")
 
-        # Write in values
-        # TODO: only write the relevant columns
-        i = 0
-        for key in hotspot_ptrace.keys():
-            if key not in HOTSPOT_FLOORPLAN:
-                continue
+        for _ in range(sample_count):
+            # Write in values
+            # TODO: only write the relevant columns
+            i = 0
+            for key in hotspot_ptrace.keys():
+                if key not in HOTSPOT_FLOORPLAN:
+                    continue
 
-            if i > 0:
-                f.write("\t")
+                if i > 0:
+                    f.write("\t")
 
-            i += 1
+                i += 1
 
-            value = hotspot_ptrace[key]
-            value = float(value)
+                value = hotspot_ptrace[key]
+                value = float(value)
 
-            f.write(f"{value:.6f}")
+                f.write(f"{value:.6f}")
 
-        f.write("\n")
+            f.write("\n")
 
     if initial_heat is not None:
         # Create input file
         # TODO: just write directly, this is some stupidity from old code
-        write_heatmap_to_init("./hotspot_files/block_in.init", initial_heat)
+        write_heatmap_to_init(
+            "./hotspot_files/block_in.init", initial_heat, heatsink_offset
+        )
         shutil.copyfile("./hotspot_files/block_in.init", "./hotspot_files/gcc.init")
+        print("Using prior heat value...")
 
     # Replace line in example.config
     lines = []
 
-    with open(config_file, "r") as f:
+    with open(hotspot_config_file, "r") as f:
         lines = f.readlines()
 
-    pattern = re.compile(r"^\s*sampling_intvl\s+[\d.eE+-]+")
+    pattern = re.compile(r"^\s*-sampling_intvl\s+[\d\.eE+-]+", re.MULTILINE)
+
+    per_sample_execution_time = execution_time / sample_count
+    per_sample_epsilon = 0.00001
+
+    if not (per_sample_execution_time > per_sample_epsilon):
+        # Just some epsilon value
+        per_sample_execution_time = per_sample_epsilon
 
     # TODO: check whitespaces are correct
     # TODO: verify it correctly replaces the text
     for i, line in enumerate(lines):
         if pattern.match(line):
-            lines[i] = f"\t-sampling_intvl\t\t{execution_time}\n"
+            # TODO:
+            lines[i] = f"\t\t-sampling_intvl\t\t{per_sample_execution_time:.6f}\n"
             break
 
-    with open(config_file, "w") as f:
+    with open(hotspot_config_file, "w") as f:
         f.writelines(lines)
 
     # Run hotspot
@@ -430,7 +449,7 @@ def aggregate_heat_data(
     return selected_heat
 
 
-def write_heatmap_to_init(file_path: str, heat: dict) -> None:
+def write_heatmap_to_init(file_path: str, heat: dict, heatsink_offset: float) -> None:
     # Write values for each key
     # then write
     # we don't have any real values for the ones below? so we just guess them
@@ -450,7 +469,7 @@ def write_heatmap_to_init(file_path: str, heat: dict) -> None:
             f.write(f"hsp_{key} {value:.2f}\n")
 
         for key, value in heat.items():
-            f.write(f"hsink_{key} {value:.2f}\n")
+            f.write(f"hsink_{key} {value + heatsink_offset:.2f}\n")
 
         # TODO: we have no clue of correct value, so we assume temperature of 75
         # (just assuming something pretty warm)
@@ -464,10 +483,11 @@ def read_heatmap_output(file_path: str) -> dict:
     # All columns numerical, so should work
     df = df.astype(float)
 
+    # TODO: this is expected whenever we have >1 sample, not worth the error
     if len(df) > 1:
         print("[WARN] DF had more than one row, we just take the first")
 
-    return df.iloc[0].to_dict()
+    return df.iloc[-1].to_dict()
 
 
 def calculate_all_heat(
@@ -480,10 +500,14 @@ def calculate_all_heat(
     aggregate_method: str,
     clock_rate: float,
     config_file: str,
+    hotspot_config_file: str,
+    heatsink_offset: float,
 ):
     # Clock rate given in MHz, need GHz
     clock_rate = float(clock_rate)
     clock_rate *= 1.0e6
+
+    heatsink_offset = float(heatsink_offset)
 
     # Add execution time column to the mcpat df
     merged = mcpat_df.merge(additional_block, on="block_id")
@@ -532,7 +556,9 @@ def calculate_all_heat(
             mcpat_ptrace,
             float(mcpat_ptrace["execution_cycles"]) / float(clock_rate),
             config_file,
+            hotspot_config_file,
             new_heat,
+            heatsink_offset,
         )
 
         heat_data[node] = final_heat
@@ -562,6 +588,12 @@ def main():
         type=str,
         default="./scripts/configs.cfg",
         help="General config file",
+    )
+    parser.add_argument(
+        "--configs_hotspot",
+        type=str,
+        default="./hotspot_files/example.config",
+        help="Hotspot config file",
     )
     parser.add_argument(
         "--file_prefix",
@@ -677,6 +709,8 @@ def main():
         args.aggregate,
         config_data["mcpat"]["CLOCK_RATE"],
         args.configs,
+        args.configs_hotspot,
+        config_data["hotspot"]["HEATSINK_OFFSET"],
     )
 
     with open("HeatData.csv", "w") as f:

@@ -11,6 +11,7 @@ fi
 use_init=$1
 
 if [[ "$use_init" == "true" ]]; then
+  echo "Using previous heat values"
   init_file="gcc.init"
 else
   init_file="gcc_default.init"
@@ -69,6 +70,7 @@ mkdir -p ./hotspot_files/outputs/
   -p ../rf_count/hotspot_files/gcc.ptrace \
   -materials_file ../rf_count/hotspot_files/example.materials \
   -model_type block \
+  -steady_file ../rf_count/hotspot_files/outputs/gcc.steady \
   -o ../rf_count/hotspot_files/outputs/gcc.ttrace
 
 

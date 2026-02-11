@@ -29,10 +29,6 @@ HOTSPOT_CORE_FLOORPLAN = {
 
 
 def main():
-    # TODO: load HeatData.csv
-    # TODO: load output if exists
-    # TODO: get max of functional units, get mean of functional units, get weighted on width/height
-    # TODO:
     parser = argparse.ArgumentParser(
         description="Get average, and max heat data per functional unit"
     )
@@ -101,6 +97,8 @@ def main():
     df = df.merge(
         block_additional[["block_id", "execution_cycles"]], on="block_id", how="inner"
     )
+
+    # TODO: transform execution cycles to execution time
 
     df = df[
         [
