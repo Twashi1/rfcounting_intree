@@ -20,7 +20,7 @@ fi
 echo "Using init file: $init_file"
 
 # Remove results from previous simulatiosn
-rm -f ./hotspot_files/gcc.init
+# rm -f ./hotspot_files/gcc.init
 rm -f ./hotspot_files/outputs/*
 
 # Create outputs directory if it doesn't exist

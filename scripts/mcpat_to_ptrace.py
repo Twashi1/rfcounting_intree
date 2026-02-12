@@ -86,14 +86,19 @@ def get_static_dynamic_power(unit_stats: dict, keys: list) -> float:
     total = 0.0
 
     for key in keys:
-        total += unit_stats[key]["Runtime Dynamic"]
-        total += unit_stats[key]["Gate Leakage"]
-        total += unit_stats[key]["Subthreshold Leakage"]
+        stats = unit_stats[key]
+        total += stats.get("Runtime Dynamic", 0)
+        total += stats.get("Gate Leakage", 0)
+        total += stats.get("Subthreshold Leakage", 0)
 
     return total
 
 
-def mcpat_to_dict(mcpat_out_file: str) -> dict:
+def mcpat_to_dict(
+    mcpat_out_file: str, floormap_df: pd.DataFrame, use_residuals=True
+) -> dict:
+    # TODO: lazy to refactor
+    flp_df = floormap_df
     text = ""
 
     with open(mcpat_out_file, "r") as f:
@@ -102,13 +107,14 @@ def mcpat_to_dict(mcpat_out_file: str) -> dict:
     unit_stats = {}
 
     for unit in [
+        "Core",
         "L2",
+        "Instruction Fetch Unit",
         "Instruction Cache",
-        "Data Cache",
+        "Branch Target Buffer",
         "Branch Predictor",
-        "Dtlb",
-        "Floating Point Unit",
-        "Floating Point RF",
+        "Instruction Buffer",
+        "Instruction Decoder",
         "Renaming Unit",
         "Int Front End RAT",
         "FP Front End RAT",
@@ -116,18 +122,136 @@ def mcpat_to_dict(mcpat_out_file: str) -> dict:
         "FP Retire RAT",
         "FP Free List",
         "Free List",  # assuming this is only integer free list?
+        "Load Store Unit",
+        "Data Cache",
+        "LoadQ",
+        "StoreQ",
+        "Memory Management Unit",
+        "Itlb",
+        "Dtlb",
+        "Execution Unit",
+        "Register Files",
+        "Integer RF",
+        "Floating Point RF",
         "Instruction Scheduler",
         "Instruction Window",  # assuming this is only integer instruction window?
         "FP Instruction Window",
-        "Integer RF",
         "Integer ALU",
-        "Load Store Unit",
-        "LoadQ",
-        "StoreQ",
-        "Itlb",
+        "Floating Point Unit",
+        "Results Broadcast Bus",
     ]:
         stats = mcpat_get_unit_stats(unit, text)
         unit_stats[unit] = stats
+
+    # Unsure how to attribute most of these residuals, just doing the most impactful ones
+    # Instruction Fetch Unit residual
+    ifu_residual = get_static_dynamic_power(
+        unit_stats, ["Instruction Fetch Unit"]
+    ) - get_static_dynamic_power(
+        unit_stats,
+        [
+            "Instruction Cache",
+            "Branch Target Buffer",
+            "Branch Predictor",
+            "Instruction Buffer",
+            "Instruction Decoder",
+        ],
+    )
+
+    # Renaming Unit
+    renaming_residual = get_static_dynamic_power(
+        unit_stats, ["Renaming Unit"]
+    ) - get_static_dynamic_power(
+        unit_stats,
+        [
+            "Int Front End RAT",
+            "FP Front End RAT",
+            "Int Retire RAT",
+            "FP Retire RAT",
+            "FP Free List",
+            "Free List",
+        ],
+    )
+    # Load Store Unit
+    lsu_residual = get_static_dynamic_power(
+        unit_stats, ["Load Store Unit"]
+    ) - get_static_dynamic_power(
+        unit_stats,
+        [
+            "Data Cache",
+            "LoadQ",
+            "StoreQ",
+        ],
+    )
+
+    # Memory Management
+    lsu_residual = get_static_dynamic_power(
+        unit_stats, ["Memory Management Unit"]
+    ) - get_static_dynamic_power(
+        unit_stats,
+        [
+            "Itlb",
+            "Dtlb",
+        ],
+    )
+    # Execution Unit
+    execution_residual = get_static_dynamic_power(
+        unit_stats, ["Execution Unit"]
+    ) - get_static_dynamic_power(
+        unit_stats,
+        [
+            "Register Files",
+            "Instruction Scheduler",
+            "Integer ALU",
+            "Floating Point Unit",
+            "Results Broadcast Bus",
+        ],
+    )
+    execution_units = [
+        "FPAdd_0",
+        "FPAdd_1",
+        "FPReg_0",
+        "FPReg_1",
+        "FPReg_2",
+        "FPReg_3",
+        "FPMul_0",
+        "FPMul_1",
+        "FPQ",
+        "IntQ",
+        "IntExec",
+        "IntReg_0",
+        "IntReg_1",
+    ]
+    execution_total_area = flp_df.loc[
+        flp_df["unit"].isin(set(execution_units)),
+        "area",
+    ].sum()
+
+    # Should only be one entry, max is arbitrary
+    area_fraction = (
+        lambda unit_name, area: flp_df.loc[flp_df["unit"] == unit_name, "area"].max()
+        / area
+    )
+
+    l2_power = get_static_dynamic_power(unit_stats, ["L2"])
+    icache_power = get_static_dynamic_power(unit_stats, ["Instruction Cache"])
+    dcache_power = get_static_dynamic_power(unit_stats, ["Data Cache"])
+    bpred_power = get_static_dynamic_power(unit_stats, ["Branch Predictor"])
+    dtb_power = get_static_dynamic_power(unit_stats, ["Dtlb"])
+    fpu_power = get_static_dynamic_power(unit_stats, ["Floating Point Unit"])
+    fp_rf_power = get_static_dynamic_power(unit_stats, ["Floating Point RF"])
+    fp_map_power = get_static_dynamic_power(
+        unit_stats, ["FP Front End RAT", "FP Retire RAT", "FP Free List"]
+    )
+    int_map_power = get_static_dynamic_power(
+        unit_stats, ["Int Front End RAT", "Int Retire RAT", "Free List"]
+    )
+    intq_power = get_static_dynamic_power(unit_stats, ["Instruction Window"])
+    int_rf_power = get_static_dynamic_power(unit_stats, ["Integer RF"])
+    int_alu_power = get_static_dynamic_power(unit_stats, ["Integer ALU"])
+    fpq_power = get_static_dynamic_power(unit_stats, ["FP Instruction Window"])
+    lsq_power = get_static_dynamic_power(unit_stats, ["LoadQ", "StoreQ"])
+    itb_power = get_static_dynamic_power(unit_stats, ["Itlb"])
 
     # Now map unit stats to hotspot
     # Assuming Alpha EV6 floorplan
@@ -136,51 +260,58 @@ def mcpat_to_dict(mcpat_out_file: str) -> dict:
     # TODO: mathematical correctness of averaging? shouldn't we consider it to just be one component with less heat spread?
     # TODO: unsure about which McPAT components to use
     hotspot_mapping = {
-        "L2_left": get_static_dynamic_power(unit_stats, ["L2"]) / 3.0,
-        "L2": get_static_dynamic_power(unit_stats, ["L2"]) / 3.0,
-        "L2_right": get_static_dynamic_power(unit_stats, ["L2"]) / 3.0,
-        "Icache": get_static_dynamic_power(unit_stats, ["Instruction Cache"]),
-        "Dcache": get_static_dynamic_power(unit_stats, ["Data Cache"]),
-        "Bpred_0": get_static_dynamic_power(unit_stats, ["Branch Predictor"]) / 3.0,
-        "Bpred_1": get_static_dynamic_power(unit_stats, ["Branch Predictor"]) / 3.0,
-        "Bpred_2": get_static_dynamic_power(unit_stats, ["Branch Predictor"]) / 3.0,
-        "DTB_0": get_static_dynamic_power(unit_stats, ["Dtlb"]) / 3.0,
-        "DTB_1": get_static_dynamic_power(unit_stats, ["Dtlb"]) / 3.0,
-        "DTB_2": get_static_dynamic_power(unit_stats, ["Dtlb"]) / 3.0,
+        "L2_left": l2_power / 3.0,
+        "L2": l2_power / 3.0,
+        "L2_right": l2_power / 3.0,
+        "Icache": icache_power,
+        "Dcache": dcache_power,
+        "Bpred_0": bpred_power / 3.0,
+        "Bpred_1": bpred_power / 3.0,
+        "Bpred_2": bpred_power / 3.0,
+        "DTB_0": dtb_power / 3.0,
+        "DTB_1": dtb_power / 3.0,
+        "DTB_2": dtb_power / 3.0,
         # NOTE: averaging these ones over the Add and Mul units
-        "FPAdd_0": get_static_dynamic_power(unit_stats, ["Floating Point Unit"]) / 4.0,
-        "FPAdd_1": get_static_dynamic_power(unit_stats, ["Floating Point Unit"]) / 4.0,
-        "FPReg_0": get_static_dynamic_power(unit_stats, ["Floating Point RF"]) / 4.0,
-        "FPReg_1": get_static_dynamic_power(unit_stats, ["Floating Point RF"]) / 4.0,
-        "FPReg_2": get_static_dynamic_power(unit_stats, ["Floating Point RF"]) / 4.0,
-        "FPReg_3": get_static_dynamic_power(unit_stats, ["Floating Point RF"]) / 4.0,
-        "FPMul_0": get_static_dynamic_power(unit_stats, ["Floating Point Unit"]) / 4.0,
-        "FPMul_1": get_static_dynamic_power(unit_stats, ["Floating Point Unit"]) / 4.0,
-        "FPMap_0": get_static_dynamic_power(
-            unit_stats, ["FP Front End RAT", "FP Retire RAT", "FP Free List"]
-        )
-        / 2.0,
-        "FPMap_1": get_static_dynamic_power(
-            unit_stats, ["FP Front End RAT", "FP Retire RAT", "FP Free List"]
-        )
-        / 2.0,
-        "IntMap": get_static_dynamic_power(
-            unit_stats, ["Int Front End RAT", "Int Retire RAT", "Free List"]
-        ),
-        "IntQ": get_static_dynamic_power(unit_stats, ["Instruction Window"]),
-        "IntReg_0": get_static_dynamic_power(unit_stats, ["Integer RF"]) / 2.0,
-        "IntReg_1": get_static_dynamic_power(unit_stats, ["Integer RF"]) / 2.0,
-        "IntExec": get_static_dynamic_power(unit_stats, ["Integer ALU"]),
-        "FPQ": get_static_dynamic_power(unit_stats, ["FP Instruction Window"]),
-        "LdStQ": get_static_dynamic_power(unit_stats, ["LoadQ", "StoreQ"]),
-        "ITB_0": get_static_dynamic_power(unit_stats, ["Itlb"]) / 2.0,
-        "ITB_1": get_static_dynamic_power(unit_stats, ["Itlb"]) / 2.0,
+        "FPAdd_0": fpu_power / 4.0
+        + area_fraction("FPAdd_0", execution_total_area) * execution_residual,
+        "FPAdd_1": fpu_power / 4.0
+        + area_fraction("FPAdd_1", execution_total_area) * execution_residual,
+        "FPReg_0": fp_rf_power / 4.0
+        + area_fraction("FPReg_0", execution_total_area) * execution_residual,
+        "FPReg_1": fp_rf_power / 4.0
+        + area_fraction("FPReg_1", execution_total_area) * execution_residual,
+        "FPReg_2": fp_rf_power / 4.0
+        + area_fraction("FPReg_2", execution_total_area) * execution_residual,
+        "FPReg_3": fp_rf_power / 4.0
+        + area_fraction("FPReg_3", execution_total_area) * execution_residual,
+        "FPMul_0": fpu_power / 4.0
+        + area_fraction("FPMul_0", execution_total_area) * execution_residual,
+        "FPMul_1": fpu_power / 4.0
+        + area_fraction("FPMul_1", execution_total_area) * execution_residual,
+        "FPMap_0": fp_map_power / 2.0,
+        "FPMap_1": fp_map_power / 2.0,
+        "IntMap": int_map_power,
+        "IntQ": intq_power
+        + area_fraction("IntQ", execution_total_area) * execution_residual,
+        "IntReg_0": int_rf_power / 2.0
+        + area_fraction("IntReg_0", execution_total_area) * execution_residual,
+        "IntReg_1": int_rf_power / 2.0
+        + area_fraction("IntReg_1", execution_total_area) * execution_residual,
+        "IntExec": int_alu_power
+        + area_fraction("IntExec", execution_total_area) * execution_residual,
+        "FPQ": fpq_power
+        + area_fraction("FPQ", execution_total_area) * execution_residual,
+        "LdStQ": lsq_power,
+        "ITB_0": itb_power / 2.0,
+        "ITB_1": itb_power / 2.0,
     }
 
     return hotspot_mapping
 
 
-def load_folder_mcpat(folder_path: str, file_prefix: str) -> pd.DataFrame:
+def load_folder_mcpat(
+    folder_path: str, file_prefix: str, floormap_df: pd.DataFrame, use_residuals=True
+) -> pd.DataFrame:
     folder_path = folder_path.rstrip(os.sep)
     last_directory_name = os.path.basename(folder_path)
 
@@ -202,7 +333,7 @@ def load_folder_mcpat(folder_path: str, file_prefix: str) -> pd.DataFrame:
         if not os.path.isfile(file_path):
             continue
 
-        hotspot_mappings = mcpat_to_dict(file_path)
+        hotspot_mappings = mcpat_to_dict(file_path, floormap_df, use_residuals)
 
         match = pattern.match(f)
 
@@ -212,15 +343,13 @@ def load_folder_mcpat(folder_path: str, file_prefix: str) -> pd.DataFrame:
         path_number = int(match.group(1))
         voltage_level = match.group(2)
 
-        unit_stats = mcpat_to_dict(file_path)
-
         all_data["voltage"].append(voltage_level)
 
         # TODO: we don't know if these are paths or blocks, so we have to add both
         all_data["path_index"].append(path_number)
         all_data["block_id"].append(path_number)
 
-        for key, power in unit_stats.items():
+        for key, power in hotspot_mappings.items():
             all_data[key].append(power)
 
     return pd.DataFrame(all_data)
@@ -233,6 +362,7 @@ def get_hotspot_temp(
     hotspot_config_file: str,
     initial_heat: dict,
     heatsink_offset: float,
+    name_id: str,
 ) -> dict:
     # TODO: construct input from hotspot_ptrace (dataframe series, or turn to dict?)
     # TODO: assume ttrace is a file path to use as input, initial_temp is numerical (kelvin)
@@ -241,8 +371,12 @@ def get_hotspot_temp(
 
     # Not sure how HotSpot works, so we're going to provide it 10 samples of the same power
     # With the sampling interval being 1/10th of the execution time
+    # TODO: sample count should be selected such that we have intervals of span 0.3-3 microseconds (according to HotSpot)
     sample_count = 10
 
+    print(hotspot_ptrace)
+
+    # TODO: copy this file for logging
     with open("./hotspot_files/gcc.ptrace", "w") as f:
         # Write in keys
         i = 0
@@ -282,11 +416,8 @@ def get_hotspot_temp(
     if initial_heat is not None:
         # Create input file
         # TODO: just write directly, this is some stupidity from old code
-        write_heatmap_to_init(
-            "./hotspot_files/block_in.init", initial_heat, heatsink_offset
-        )
-        shutil.copyfile("./hotspot_files/block_in.init", "./hotspot_files/gcc.init")
-        print("Using prior heat value...")
+        print(initial_heat)
+        write_heatmap_to_init("./hotspot_files/gcc.init", initial_heat, heatsink_offset)
 
     # Replace line in example.config
     lines = []
@@ -421,8 +552,9 @@ def aggregate_heat_data(
         return None
 
     for start_block_id in filtered:
-        prob = df.loc[
-            (df["start_block_id"] == start_block_id) & (df["exit_block_id"] == target),
+        prob = full_cfg.loc[
+            (full_cfg["start_block_id"] == start_block_id)
+            & (full_cfg["exit_block_id"] == target),
             "branch_prob",
         ].iloc[0]
 
@@ -458,6 +590,9 @@ def write_heatmap_to_init(file_path: str, heat: dict, heatsink_offset: float) ->
     # - hsp_
     # - hsink_
     # - inode_0 through inode_11 (unsure of correct values)
+    print(f"Writing to {file_path}")
+    temp = 75 + 273.15
+
     with open(file_path, "w") as f:
         for key, value in heat.items():
             f.write(f"{key} {value:.2f}\n")
@@ -469,12 +604,13 @@ def write_heatmap_to_init(file_path: str, heat: dict, heatsink_offset: float) ->
             f.write(f"hsp_{key} {value:.2f}\n")
 
         for key, value in heat.items():
-            f.write(f"hsink_{key} {value + heatsink_offset:.2f}\n")
+            heatsink_value = value + heatsink_offset
+            f.write(f"hsink_{key} {heatsink_value:.2f}\n")
 
         # TODO: we have no clue of correct value, so we assume temperature of 75
         # (just assuming something pretty warm)
         for i in range(12):
-            f.write(f"inode_{i} {celsius_to_kelvin(75.00):.2f}")
+            f.write(f"inode_{i} {temp:.2f}\n")
 
 
 def read_heatmap_output(file_path: str) -> dict:
@@ -526,8 +662,8 @@ def calculate_all_heat(
     # Create backwards mapping from node to parents
     parents = defaultdict(list)
 
-    for start in cfg.keys():
-        for end in cfg[start]:
+    for start in global_adj.keys():
+        for end in global_adj[start]:
             parents[end].append(start)
 
     for node in approx_sorted_nodes:
@@ -535,8 +671,12 @@ def calculate_all_heat(
         prevs = parents[node]
         # Get heat data of all parents
         parent_heats = {
-            parent: heat_data[parent] for parent in heat_data if parent in heat_data
+            parent: heat_data[parent] for parent in prevs if parent in heat_data
         }
+
+        print(
+            f"Block id: {node=} has {len(parent_heats)} parents, or {prevs} dependencies"
+        )
 
         # Get the new heat
         new_heat = aggregate_heat_data(
@@ -559,6 +699,7 @@ def calculate_all_heat(
             hotspot_config_file,
             new_heat,
             heatsink_offset,
+            f"{node:04d}",
         )
 
         heat_data[node] = final_heat
@@ -638,10 +779,34 @@ def main():
         default="VoltageLevels.csv",
         help="Path to voltage levels file",
     )
+    parser.add_argument(
+        "--floorplan",
+        type=str,
+        default="./hotspot_files/ev6.flp",
+        help="Hotspot floorplan",
+    )
     args = parser.parse_args()
 
-    mcpat_df = load_folder_mcpat(args.mcpat_outs, args.file_prefix)
+    flp_df = pd.read_csv(
+        args.floorplan, delim_whitespace=True, header=None, index_col=0, comment="#"
+    )
+
+    flp_df.columns = ["width", "height", "leftx", "bottomy"]
+    flp_df.index.name = "unit"
+    flp_df = flp_df.reset_index()
+    flp_df["width"] = flp_df["width"].astype(float)
+    flp_df["height"] = flp_df["height"].astype(float)
+    flp_df["leftx"] = flp_df["leftx"].astype(float)
+    flp_df["bottomy"] = flp_df["bottomy"].astype(float)
+    flp_df["area"] = flp_df["width"] * flp_df["height"]
+
     config_data = utils.load_cfg(args.configs)
+    mcpat_df = load_folder_mcpat(
+        args.mcpat_outs,
+        args.file_prefix,
+        flp_df,
+        config_data["hotspot"]["INCLUDE_RESIDUALS"] == "true",
+    )
     cfg = utils.load_adjacency_list_cfg(args.control_flow, args.module_index)
     dag = utils.load_adjacency_list_dag(args.dag, args.module_index)
     topo = utils.load_topo_sort(args.topo_sort, args.module_index)
