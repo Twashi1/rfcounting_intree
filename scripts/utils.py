@@ -3,6 +3,7 @@ import xml.etree.ElementTree as ET
 import argparse
 import re
 import copy
+import math
 
 # not really required, but useful for some csv processing
 import pandas as pd
@@ -69,6 +70,65 @@ BTB_READS = "btb_reads"
 BTB_WRITES = "btb_writes"
 
 
+def get_voltage(
+    temperature_celsius: float, target_frequency_ghz: float, voltage_levels: dict
+) -> float:
+    # TODO: big problem, these constants are for 16nm!
+    d_0 = -4.27
+    d_1 = 0.0042
+    d_2 = 0.0052
+    d_3 = 10.6
+    d_4 = -2.66
+    # f = d_0x^2+d_1xt+d_2t+d_3x+d_4
+    # f = d_0x^2+(d_1t+d_3)x+d_2t+d4
+    # f = d_0x^2+b_1x+b_2
+
+    b_1 = d_1 * temperature_celsius + d_3
+    b_2 = d_2 * temperature_celsius + d_4 - target_frequency_ghz
+
+    # Note we only want solutions on the left side of the peak of the curve
+    #   so we only consider the + case
+    # ax^2+bx+c
+    a = d_0
+    b = b_1
+    c = b_2
+
+    required_voltage = (-b + math.sqrt(b * b - 4.0 * a * c)) / (2.0 * a)
+
+    print(
+        f"Temp {temperature_celsius} requires {required_voltage:.5f}V to maintain {target_frequency_ghz}GHz"
+    )
+
+    # Returns just the closest voltage level
+    return min(voltage_levels, key=lambda k: abs(voltage_levels[k] - required_voltage))
+
+
+def get_distributed_voltage_levels(voltage_levels: list, num_values: int) -> list:
+    """
+    Returns the list of indices into voltage levels
+    """
+    if num_values == 0:
+        raise ValueError("Expected to select at least 1 voltage level")
+
+    if num_values > len(voltage_levels):
+        raise ValueError("Got too many voltage levels to select")
+
+    total = len(voltage_levels)
+
+    if num_values == 1:
+        # TODO: use list slice instead
+        return [0]
+
+    step = (total - 1) / (num_values - 1)
+    indices = [math.floor(i * step) for i in range(num_values)]
+    # Replace last of our indices with the largest voltage
+    # ensures the range of values we generate always begins with minimum voltage, and ends with largest voltage
+    indices[-1] = total - 1
+
+    # Return the keys of the voltage levels
+    return indices
+
+
 # TODO: output of this isn't dictionary?
 # TODO: shouldn't be used anyway, prefer load_multipart_csv
 def load_csv_to_dict(path: str):
@@ -89,6 +149,45 @@ def load_cfg(path: str):
 
     return cfg
 
+
+def load_voltage_levels_from_cfg(cfg) -> list:
+    mcpat_data = cfg["mcpat"]
+
+    i = 0
+
+    voltage_levels = []
+
+    prev_voltage = 0.0
+
+    # arbitrary limit of 50 voltage levels
+    for i in range(50):
+        voltage_key = f"V{i}"
+        
+        if voltage_key not in mcpat_data:
+            break
+
+        value = float(mcpat_data[voltage_key])
+
+        if value < prev_voltage:
+            raise ValueError("Voltage levels must be non-decreasing!")
+
+        if value == prev_voltage:
+            print("[WARN] Omit voltage levels if unused, do not have same voltage value for multiple voltage levels")
+            break
+
+        voltage_levels.append(value)
+
+    return voltage_levels
+
+
+def load_program_heats(heat_table: str) -> pd.DataFrame:
+    # Should be single-part csv so can just use pandas
+    df = pd.read_csv(heat_table)
+    df["block_id"] = df["block_id"].astype(int)
+    float_columns = ["temp_mean", "temp_max", "temp_area_weighted_mean", "execution_cycles"]
+    df[float_columns] = df[float_columns].astype(float)
+
+    return df
 
 def load_multipart_csv(path: str, delim=",") -> list:
     part = {}  # dict of arrays, one entry for each row, arranged like a dataframe
@@ -144,6 +243,7 @@ def load_voltage_levels(path: str) -> pd.DataFrame:
 
     df = pd.DataFrame(csv_parts[0])
     df["block_id"] = df["block_id"].astype(int)
+    df["voltage_level"] = df["voltage_level"].astype(int)
 
     return df
 
@@ -207,7 +307,7 @@ def set_voltages(voltage_file: str, voltages: list, block_ids: list):
     voltage_df.to_csv(voltage_file, index=False)
 
 
-def init_voltages(voltage_file: str, voltage_level: str, block_ids: list):
+def init_voltages(voltage_file: str, voltage_level: int, block_ids: list):
     set_voltages(voltage_file, [voltage_level for _ in block_ids], block_ids)
 
 
@@ -515,7 +615,7 @@ def stats_df_estimate_missing_cols(df: pd.DataFrame):
 
 
 def modify_xml(
-    input_path: str, output_path: str, input_stats: dict, input_cfg, voltage_level: str
+    input_path: str, output_path: str, input_stats: dict, input_cfg, voltage_level_id: int 
 ) -> None:
     tree = ET.parse(input_path)
 
@@ -529,25 +629,8 @@ def modify_xml(
 
         input_stats = input_stats.iloc[0].to_dict()
 
-    VOLTAGE_LEVEL = MCPAT_VOLTAGE_MED
-
-    if isinstance(voltage_level, str):
-        if voltage_level == "high":
-            VOLTAGE_LEVEL = MCPAT_VOLTAGE_HIGH
-        elif voltage_level == "med":
-            VOLTAGE_LEVEL = MCPAT_VOLTAGE_MED
-        elif voltage_level == "low":
-            VOLTAGE_LEVEL = MCPAT_VOLTAGE_LOW
-        else:
-            raise ValueError(
-                f"Expected voltage level low/med/high, got {voltage_level}"
-            )
-    elif isinstance(voltage_level, int):
-        VOLTAGE_LEVEL = [MCPAT_VOLTAGE_LOW, MCPAT_VOLTAGE_MED, MCPAT_VOLTAGE_HIGH][
-            voltage_level
-        ]
-    else:
-        raise ValueError(f"Unrecognised voltage level input, got {voltage_level}")
+    voltage_levels = load_voltage_levels_from_cfg(input_cfg)
+    vdd = f"{voltage_levels[voltage_level_id]:.2f}"
 
     mcpat_config = input_cfg[MCPAT_CFG_MODULE_NAME]
 
@@ -564,9 +647,8 @@ def modify_xml(
         "target_core_clockrate",
         str(mcpat_config[MCPAT_CLOCK_RATE]),
     )
-    # TODO: also run for low/high voltages
     change_xml_property(
-        tree, "system", "param", "vdd", str(mcpat_config[MCPAT_VOLTAGE_MED])
+        tree, "system", "param", "vdd", vdd
     )
 
     change_xml_property(
@@ -582,7 +664,6 @@ def modify_xml(
         "clock_rate",
         str(mcpat_config[MCPAT_CLOCK_RATE]),
     )
-    # TODO
     change_xml_property(
         tree,
         "system/system.core0",

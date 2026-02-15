@@ -9,9 +9,9 @@ def main():
     )
     parser.add_argument(
         "--voltage_level",
-        type=str,
-        default="med",
-        help="The voltage level to initialise all block ids to; low/med/high",
+        type=int,
+        default="0",
+        help="The voltage level to initialise all block ids to, expecting the index",
     )
     parser.add_argument(
         "--module_index", type=int, default=2, help="The module to base BlockIDs off"

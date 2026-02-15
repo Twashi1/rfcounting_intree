@@ -4,6 +4,7 @@ import pandas as pd
 import os
 
 # TODO: horrendous amount of code duplication
+# TODO: also deprecated with voltage level changes
 
 
 def main():
@@ -35,6 +36,10 @@ def main():
     # each entry assumed to be a dvs calling point, so we can get power stats per calling point, in all 3 voltage regions
     loaded_stats = utils.load_standard_stat_file(args.stats)
     loaded_cfg = utils.load_cfg(args.input_cfg)
+    voltage_levels = utils.load_voltage_levels_from_cfg(loaded_cfg)
+    voltage_index_to_generate = utils.get_distributed_voltage_levels(
+        voltage_levels, int(loaded_cfg["mcpat"]["COMPUTE_LEVELS"])
+    )
 
     # Generally not a good pattern, but whatever
     for _, row in loaded_stats.iterrows():
@@ -57,15 +62,14 @@ def main():
 
         # Really ugly, we're using a counter to distinguish, so its in order of appearance of _STD.csv file
         #   we have no metadata inside the McPAT output to support us, so we have to match these up later
-        utils.modify_xml(
-            args.input_xml, path + f"_low.xml", row_data, loaded_cfg, "low"
-        )
-        utils.modify_xml(
-            args.input_xml, path + f"_med.xml", row_data, loaded_cfg, "med"
-        )
-        utils.modify_xml(
-            args.input_xml, path + f"_high.xml", row_data, loaded_cfg, "high"
-        )
+        for voltage_id in voltage_index_to_generate:
+            utils.modify_xml(
+                args.input_xml,
+                path + f"_v{voltage_id}.xml",
+                row_data,
+                loaded_cfg,
+                voltage_id,
+            )
 
 
 if __name__ == "__main__":

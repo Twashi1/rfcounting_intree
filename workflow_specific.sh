@@ -10,12 +10,16 @@ sudo bash ./buildpoly_specific.sh "${polybench_path}"
 rm -f ./stats/${test_name}_mbb_STD.csv ./stats/${test_name}_path_STD.csv
 
 python3 ./scripts/create_stats.py --input_file=MBB_stats.csv --output=./stats/${test_name}_mbb --module_index=2 --take_sum=0
-python3 ./scripts/create_stats.py --input_file=PathBlocks.csv --output=./stats/${test_name}_path --module_index=2 --path_index=-1
+#python3 ./scripts/create_stats.py --input_file=PathBlocks.csv --output=./stats/${test_name}_path --module_index=2 --path_index=-1
 
-# Delete output dir for this
+# Set initial voltages to v4 (rough middle)
+sudo python3 ./scripts/initial_voltages.py --voltage_level=4 --module_index=2
+# Delete old McPAT inputs
 sudo rm -rf "./mcpat_inputs/${test_name}"
 sudo python3 ./scripts/create_mcpat_per_block.py --stats="./stats/${test_name}_mbb_STD.csv" --output_xml="${test_name}" --output_dir="./mcpat_inputs/${test_name}"
 
+# Delete old McPAT outputs
+sudo rm -rf "./mcpat_out/${test_name}"
 # Feed all mcpat inputs
 sudo sh ./run_mcpat_all.sh "./mcpat_inputs/${test_name}"
 

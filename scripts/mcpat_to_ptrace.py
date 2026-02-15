@@ -321,9 +321,7 @@ def load_folder_mcpat(
     if file_prefix == "":
         raise ValueError(f"Bad folder path? File prefix was empty. {folder_path=}")
 
-    pattern = re.compile(
-        rf"{re.escape(file_prefix)}_idx(\d{{4}})_((high|med|low))\.txt$"
-    )
+    pattern = re.compile(rf"{re.escape(file_prefix)}_idx(\d{{4}})_v(\d+)\.txt$")
 
     all_data = defaultdict(list)
 
@@ -341,7 +339,7 @@ def load_folder_mcpat(
             raise ValueError(f"Unrecognised file name format: {f}, in path {file_path}")
 
         path_number = int(match.group(1))
-        voltage_level = match.group(2)
+        voltage_level = int(match.group(2))
 
         all_data["voltage"].append(voltage_level)
 
