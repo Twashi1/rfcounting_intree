@@ -1,0 +1,4 @@
+- calculate energy usage by taking voltage per block, mcpat stats
+- calculate EDP by energy * CPI or energy * IPC (look up formula)
+- in future we look to also increase frequency for better performance, not just improving energy efficiency by maintaining frequency
+- voltage levels span from 0.6-0.9
