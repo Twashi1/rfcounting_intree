@@ -1,9 +1,9 @@
 import csv
 import xml.etree.ElementTree as ET
-import argparse
 import re
 import copy
 import math
+from collections import defaultdict
 
 # not really required, but useful for some csv processing
 import pandas as pd
@@ -69,11 +69,151 @@ CDB_FP_ACCESSES = "cdb_fp_accesses"
 BTB_READS = "btb_reads"
 BTB_WRITES = "btb_writes"
 
+MCPAT_DESIRED_UNITS = [
+    "Core",
+    "L2",
+    "Instruction Fetch Unit",
+    "Instruction Cache",
+    "Branch Target Buffer",
+    "Branch Predictor",
+    "Instruction Buffer",
+    "Instruction Decoder",
+    "Renaming Unit",
+    "Int Front End RAT",
+    "FP Front End RAT",
+    "Int Retire RAT",
+    "FP Retire RAT",
+    "FP Free List",
+    "Free List",  # assuming this is only integer free list?
+    "Load Store Unit",
+    "Data Cache",
+    "LoadQ",
+    "StoreQ",
+    "Memory Management Unit",
+    "Itlb",
+    "Dtlb",
+    "Execution Unit",
+    "Register Files",
+    "Integer RF",
+    "Floating Point RF",
+    "Instruction Scheduler",
+    "Instruction Window",  # assuming this is only integer instruction window?
+    "FP Instruction Window",
+    "Integer ALU",
+    "Floating Point Unit",
+    "Results Broadcast Bus",
+]
+
+
+# TODO: "name" is actually name prefix
+def mcpat_get_unit_stats(name: str, text: str) -> dict:
+    # Note sometimes a colon, sometimes not
+    pattern = rf"\s*{re.escape(name)}.*\n((?:.+\s*=\s*.+\n)+)"
+
+    m = re.search(pattern, text, re.MULTILINE)
+
+    if not m:
+        return None
+
+    block = m.group(1)
+    fields = {}
+
+    for key in [
+        "Area",
+        "Peak Dynamic",
+        "Subthreshold Leakage",
+        "Gate Leakage",
+        "Runtime Dynamic",
+    ]:
+        fm = re.search(rf"\s+{key}\s*=\s*(\S+)\s.+\n", block, re.MULTILINE)
+        if fm:
+            # print(f"{fm.group(1)=}")
+            fields[key] = float(fm.group(1))
+
+    # print(f"{fields=}")
+
+    return fields
+
+
+def get_static_dynamic_power(unit_stats: dict, keys: list) -> float:
+    total = 0.0
+
+    for key in keys:
+        if key not in unit_stats:
+            raise RuntimeError(f"[WARN] Missing stat {key} from unit stats")
+
+        stats = unit_stats[key]
+        total += stats.get("Runtime Dynamic", 0)
+        total += stats.get("Gate Leakage", 0)
+        total += stats.get("Subthreshold Leakage", 0)
+
+    return total
+
+
+def mcpat_to_dict(mcpat_out_file: str) -> dict:
+    text = ""
+
+    with open(mcpat_out_file, "r") as f:
+        text = f.read()
+
+    unit_stats = {}
+
+    for unit in MCPAT_DESIRED_UNITS:
+        stats = mcpat_get_unit_stats(unit, text)
+        unit_stats[unit] = stats
+
+    return unit_stats
+
+
+def load_folder_mcpat(folder_path: str, file_prefix: str = "") -> pd.DataFrame:
+    folder_path = folder_path.rstrip(os.sep)
+    last_directory_name = os.path.basename(folder_path)
+
+    if file_prefix == "":
+        file_prefix = last_directory_name
+
+    if file_prefix == "":
+        raise ValueError(f"Bad folder path? File prefix was empty. {folder_path=}")
+
+    pattern = re.compile(rf"{re.escape(file_prefix)}_idx(\d{{4}})_v(\d+)\.txt$")
+
+    all_data = defaultdict(list)
+
+    for f in os.listdir(folder_path):
+        file_path = os.path.join(folder_path, f)
+
+        if not os.path.isfile(file_path):
+            continue
+
+        mcpat_unit_stats = mcpat_to_dict(file_path)
+
+        for key in MCPAT_DESIRED_UNITS:
+            mcpat_unit_stats[key] = get_static_dynamic_power(mcpat_unit_stats, [key])
+
+        match = pattern.match(f)
+
+        if not match:
+            raise ValueError(f"Unrecognised file name format: {f}, in path {file_path}")
+
+        path_number = int(match.group(1))
+        voltage_level = int(match.group(2))
+
+        all_data["voltage"].append(voltage_level)
+
+        # TODO: we don't know if these are paths or blocks, so we have to add both
+        all_data["path_index"].append(path_number)
+        all_data["block_id"].append(path_number)
+
+        for key, power in mcpat_unit_stats.items():
+            all_data[key].append(power)
+
+    return pd.DataFrame(all_data)
+
 
 def get_voltage(
     temperature_celsius: float, target_frequency_ghz: float, voltage_levels: dict
 ) -> float:
-    # TODO: big problem, these constants are for 16nm!
+    # TODO: not too impactful most likely, but these constants are for 16nm!
     d_0 = -4.27
     d_1 = 0.0042
     d_2 = 0.0052
@@ -162,7 +302,7 @@ def load_voltage_levels_from_cfg(cfg) -> list:
     # arbitrary limit of 50 voltage levels
     for i in range(50):
         voltage_key = f"V{i}"
-        
+
         if voltage_key not in mcpat_data:
             break
 
@@ -172,7 +312,9 @@ def load_voltage_levels_from_cfg(cfg) -> list:
             raise ValueError("Voltage levels must be non-decreasing!")
 
         if value == prev_voltage:
-            print("[WARN] Omit voltage levels if unused, do not have same voltage value for multiple voltage levels")
+            print(
+                "[WARN] Omit voltage levels if unused, do not have same voltage value for multiple voltage levels"
+            )
             break
 
         voltage_levels.append(value)
@@ -184,10 +326,16 @@ def load_program_heats(heat_table: str) -> pd.DataFrame:
     # Should be single-part csv so can just use pandas
     df = pd.read_csv(heat_table)
     df["block_id"] = df["block_id"].astype(int)
-    float_columns = ["temp_mean", "temp_max", "temp_area_weighted_mean", "execution_cycles"]
+    float_columns = [
+        "temp_mean",
+        "temp_max",
+        "temp_area_weighted_mean",
+        "execution_cycles",
+    ]
     df[float_columns] = df[float_columns].astype(float)
 
     return df
+
 
 def load_multipart_csv(path: str, delim=",") -> list:
     part = {}  # dict of arrays, one entry for each row, arranged like a dataframe
@@ -615,7 +763,11 @@ def stats_df_estimate_missing_cols(df: pd.DataFrame):
 
 
 def modify_xml(
-    input_path: str, output_path: str, input_stats: dict, input_cfg, voltage_level_id: int 
+    input_path: str,
+    output_path: str,
+    input_stats: dict,
+    input_cfg,
+    voltage_level_id: int,
 ) -> None:
     tree = ET.parse(input_path)
 
@@ -647,9 +799,7 @@ def modify_xml(
         "target_core_clockrate",
         str(mcpat_config[MCPAT_CLOCK_RATE]),
     )
-    change_xml_property(
-        tree, "system", "param", "vdd", vdd
-    )
+    change_xml_property(tree, "system", "param", "vdd", vdd)
 
     change_xml_property(
         tree, "system", "stat", "total_cycles", str(input_stats[CYCLE_COUNT])

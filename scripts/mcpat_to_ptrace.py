@@ -7,7 +7,6 @@ import pandas as pd
 import os
 import shutil
 import subprocess
-import initial_voltages
 from collections import defaultdict, deque
 
 AGGREGATE_METHOD_WORST_CASE = "hottest"
@@ -52,102 +51,16 @@ def celsius_to_kelvin(celsius: float):
     return celsius + 273.15
 
 
-# TODO: "name" is actually name prefix
-def mcpat_get_unit_stats(name: str, text: str) -> dict:
-    # Note sometimes a colon, sometimes not
-    pattern = rf"\s*{re.escape(name)}.*\n((?:.+\s*=\s*.+\n)+)"
-
-    m = re.search(pattern, text, re.MULTILINE)
-
-    if not m:
-        return None
-
-    block = m.group(1)
-    fields = {}
-
-    for key in [
-        "Area",
-        "Peak Dynamic",
-        "Subthreshold Leakage",
-        "Gate Leakage",
-        "Runtime Dynamic",
-    ]:
-        fm = re.search(rf"\s+{key}\s*=\s*(\S+)\s.+\n", block, re.MULTILINE)
-        if fm:
-            # print(f"{fm.group(1)=}")
-            fields[key] = float(fm.group(1))
-
-    # print(f"{fields=}")
-
-    return fields
-
-
-def get_static_dynamic_power(unit_stats: dict, keys: list) -> float:
-    total = 0.0
-
-    for key in keys:
-        stats = unit_stats[key]
-        total += stats.get("Runtime Dynamic", 0)
-        total += stats.get("Gate Leakage", 0)
-        total += stats.get("Subthreshold Leakage", 0)
-
-    return total
-
-
-def mcpat_to_dict(
-    mcpat_out_file: str, floormap_df: pd.DataFrame, use_residuals=True
+def mcpat_to_hotspot_units(
+    mcpat_out_file: str, flp_df: pd.DataFrame, use_residuals=True
 ) -> dict:
-    # TODO: lazy to refactor
-    flp_df = floormap_df
-    text = ""
-
-    with open(mcpat_out_file, "r") as f:
-        text = f.read()
-
-    unit_stats = {}
-
-    for unit in [
-        "Core",
-        "L2",
-        "Instruction Fetch Unit",
-        "Instruction Cache",
-        "Branch Target Buffer",
-        "Branch Predictor",
-        "Instruction Buffer",
-        "Instruction Decoder",
-        "Renaming Unit",
-        "Int Front End RAT",
-        "FP Front End RAT",
-        "Int Retire RAT",
-        "FP Retire RAT",
-        "FP Free List",
-        "Free List",  # assuming this is only integer free list?
-        "Load Store Unit",
-        "Data Cache",
-        "LoadQ",
-        "StoreQ",
-        "Memory Management Unit",
-        "Itlb",
-        "Dtlb",
-        "Execution Unit",
-        "Register Files",
-        "Integer RF",
-        "Floating Point RF",
-        "Instruction Scheduler",
-        "Instruction Window",  # assuming this is only integer instruction window?
-        "FP Instruction Window",
-        "Integer ALU",
-        "Floating Point Unit",
-        "Results Broadcast Bus",
-    ]:
-        stats = mcpat_get_unit_stats(unit, text)
-        unit_stats[unit] = stats
+    unit_stats = utils.mcpat_to_dict(mcpat_out_file)
 
     # Unsure how to attribute most of these residuals, just doing the most impactful ones
     # Instruction Fetch Unit residual
-    ifu_residual = get_static_dynamic_power(
+    ifu_residual = utils.get_static_dynamic_power(
         unit_stats, ["Instruction Fetch Unit"]
-    ) - get_static_dynamic_power(
+    ) - utils.get_static_dynamic_power(
         unit_stats,
         [
             "Instruction Cache",
@@ -159,9 +72,9 @@ def mcpat_to_dict(
     )
 
     # Renaming Unit
-    renaming_residual = get_static_dynamic_power(
+    renaming_residual = utils.get_static_dynamic_power(
         unit_stats, ["Renaming Unit"]
-    ) - get_static_dynamic_power(
+    ) - utils.get_static_dynamic_power(
         unit_stats,
         [
             "Int Front End RAT",
@@ -173,9 +86,9 @@ def mcpat_to_dict(
         ],
     )
     # Load Store Unit
-    lsu_residual = get_static_dynamic_power(
+    lsu_residual = utils.get_static_dynamic_power(
         unit_stats, ["Load Store Unit"]
-    ) - get_static_dynamic_power(
+    ) - utils.get_static_dynamic_power(
         unit_stats,
         [
             "Data Cache",
@@ -185,9 +98,9 @@ def mcpat_to_dict(
     )
 
     # Memory Management
-    lsu_residual = get_static_dynamic_power(
+    mmu_residual = utils.get_static_dynamic_power(
         unit_stats, ["Memory Management Unit"]
-    ) - get_static_dynamic_power(
+    ) - utils.get_static_dynamic_power(
         unit_stats,
         [
             "Itlb",
@@ -195,9 +108,9 @@ def mcpat_to_dict(
         ],
     )
     # Execution Unit
-    execution_residual = get_static_dynamic_power(
+    execution_residual = utils.get_static_dynamic_power(
         unit_stats, ["Execution Unit"]
-    ) - get_static_dynamic_power(
+    ) - utils.get_static_dynamic_power(
         unit_stats,
         [
             "Register Files",
@@ -233,25 +146,31 @@ def mcpat_to_dict(
         / area
     )
 
-    l2_power = get_static_dynamic_power(unit_stats, ["L2"])
-    icache_power = get_static_dynamic_power(unit_stats, ["Instruction Cache"])
-    dcache_power = get_static_dynamic_power(unit_stats, ["Data Cache"])
-    bpred_power = get_static_dynamic_power(unit_stats, ["Branch Predictor"])
-    dtb_power = get_static_dynamic_power(unit_stats, ["Dtlb"])
-    fpu_power = get_static_dynamic_power(unit_stats, ["Floating Point Unit"])
-    fp_rf_power = get_static_dynamic_power(unit_stats, ["Floating Point RF"])
-    fp_map_power = get_static_dynamic_power(
+    ifu_residual *= use_residuals
+    renaming_residual *= use_residuals
+    lsu_residual *= use_residuals
+    mmu_residual *= use_residuals
+    execution_residual *= use_residuals
+
+    l2_power = utils.get_static_dynamic_power(unit_stats, ["L2"])
+    icache_power = utils.get_static_dynamic_power(unit_stats, ["Instruction Cache"])
+    dcache_power = utils.get_static_dynamic_power(unit_stats, ["Data Cache"])
+    bpred_power = utils.get_static_dynamic_power(unit_stats, ["Branch Predictor"])
+    dtb_power = utils.get_static_dynamic_power(unit_stats, ["Dtlb"])
+    fpu_power = utils.get_static_dynamic_power(unit_stats, ["Floating Point Unit"])
+    fp_rf_power = utils.get_static_dynamic_power(unit_stats, ["Floating Point RF"])
+    fp_map_power = utils.get_static_dynamic_power(
         unit_stats, ["FP Front End RAT", "FP Retire RAT", "FP Free List"]
     )
-    int_map_power = get_static_dynamic_power(
+    int_map_power = utils.get_static_dynamic_power(
         unit_stats, ["Int Front End RAT", "Int Retire RAT", "Free List"]
     )
-    intq_power = get_static_dynamic_power(unit_stats, ["Instruction Window"])
-    int_rf_power = get_static_dynamic_power(unit_stats, ["Integer RF"])
-    int_alu_power = get_static_dynamic_power(unit_stats, ["Integer ALU"])
-    fpq_power = get_static_dynamic_power(unit_stats, ["FP Instruction Window"])
-    lsq_power = get_static_dynamic_power(unit_stats, ["LoadQ", "StoreQ"])
-    itb_power = get_static_dynamic_power(unit_stats, ["Itlb"])
+    intq_power = utils.get_static_dynamic_power(unit_stats, ["Instruction Window"])
+    int_rf_power = utils.get_static_dynamic_power(unit_stats, ["Integer RF"])
+    int_alu_power = utils.get_static_dynamic_power(unit_stats, ["Integer ALU"])
+    fpq_power = utils.get_static_dynamic_power(unit_stats, ["FP Instruction Window"])
+    lsq_power = utils.get_static_dynamic_power(unit_stats, ["LoadQ", "StoreQ"])
+    itb_power = utils.get_static_dynamic_power(unit_stats, ["Itlb"])
 
     # Now map unit stats to hotspot
     # Assuming Alpha EV6 floorplan
@@ -309,7 +228,8 @@ def mcpat_to_dict(
     return hotspot_mapping
 
 
-def load_folder_mcpat(
+# TODO: lots of code duplication between here and utils.load_folder_mcpat
+def load_folder_mcpat_to_hotspot(
     folder_path: str, file_prefix: str, floormap_df: pd.DataFrame, use_residuals=True
 ) -> pd.DataFrame:
     folder_path = folder_path.rstrip(os.sep)
@@ -331,7 +251,7 @@ def load_folder_mcpat(
         if not os.path.isfile(file_path):
             continue
 
-        hotspot_mappings = mcpat_to_dict(file_path, floormap_df, use_residuals)
+        hotspot_mappings = mcpat_to_hotspot_units(file_path, floormap_df, use_residuals)
 
         match = pattern.match(f)
 
@@ -371,8 +291,6 @@ def get_hotspot_temp(
     # With the sampling interval being 1/10th of the execution time
     # TODO: sample count should be selected such that we have intervals of span 0.3-3 microseconds (according to HotSpot)
     sample_count = 10
-
-    print(hotspot_ptrace)
 
     # TODO: copy this file for logging
     with open("./hotspot_files/gcc.ptrace", "w") as f:
@@ -637,7 +555,7 @@ def calculate_all_heat(
     hotspot_config_file: str,
     heatsink_offset: float,
 ):
-    # Clock rate given in MHz, need GHz
+    # Clock rate given in MHz, need Hz
     clock_rate = float(clock_rate)
     clock_rate *= 1.0e6
 
@@ -713,7 +631,7 @@ def main():
     parser.add_argument(
         "--initial_temp_kelvin",
         type=float,
-        default=273.15 + 75.0,
+        default=273.15 + 77.0,
         help="Initial temperatures in kelvin when we cannot find previous block",
     )
     parser.add_argument(
@@ -799,7 +717,7 @@ def main():
     flp_df["area"] = flp_df["width"] * flp_df["height"]
 
     config_data = utils.load_cfg(args.configs)
-    mcpat_df = load_folder_mcpat(
+    mcpat_df = load_folder_mcpat_to_hotspot(
         args.mcpat_outs,
         args.file_prefix,
         flp_df,
@@ -848,7 +766,6 @@ def main():
 
     # Roughly topologically sorted nodes
     approx_sorted_nodes = ordered_nodes(topo, comp_to_nodes, global_adj)
-    print(f"{approx_sorted_nodes=}")
 
     # mcpat_df: pd.DataFrame,
     # approx_sorted_nodes: list,
@@ -859,9 +776,6 @@ def main():
     # aggregate_method: str,
     # clock_rate: float,
     # config_file: str,
-
-    print(mcpat_df_filtered)
-
     all_block_heats = calculate_all_heat(
         mcpat_df_filtered,
         approx_sorted_nodes,
@@ -902,9 +816,6 @@ def main():
                     f.write(f"{res:.3f}")
 
             f.write("\n")
-
-    # TODO: output all block heats, or at least delta temp for a given path
-    print(all_block_heats)
 
 
 if __name__ == "__main__":

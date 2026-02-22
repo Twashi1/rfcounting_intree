@@ -29,6 +29,15 @@ sudo python3 ./scripts/mcpat_to_ptrace.py --mcpat_outs="./mcpat_out/${test_name}
 # Generate heat data table
 sudo python3 ./scripts/per_program_table.py --name="${test_name}"
 
+# Add required voltages
+sudo python3 ./scripts/tei_effects.py --program_heat="${test_name}_ProgramHeat.csv" --out_prefix="${test_name}"
+
+# Write voltages to VoltageLevels.csv
+sudo python3 ./scripts/read_voltages.py --tei_voltages="${test_name}_ProgramHeatVoltages.csv" --out_voltages="${test_name}_OutVoltages.csv"
+
+# Calculate EDP
+sudo python3 ./scripts/calc_energy_efficiency.py --stats="./stats/${test_name}_mbb_STD.csv" --mcpat_outs="./mcpat_out/${test_name}" --old_voltage_levels="VoltageLevels.csv" --new_voltage_levels="${test_name}_OutVoltages.csv"
+
 # TODO: inserting DVS calls (gem5 now, not sniper)
 # TODO: lower IR to machine code
 # TODO: test in gem5

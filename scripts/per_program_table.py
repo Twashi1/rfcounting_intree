@@ -36,6 +36,12 @@ def main():
         "--heatdata", type=str, default="HeatData.csv", help="Heat data file"
     )
     parser.add_argument(
+        "--config_file",
+        type=str,
+        default="./scripts/configs.cfg",
+        help="Config file to get clock frequency",
+    )
+    parser.add_argument(
         "--floorplan",
         type=str,
         default="./hotspot_files/ev6.flp",
@@ -57,6 +63,9 @@ def main():
         "--name", type=str, help="Name of the program/prefix to output under"
     )
     args = parser.parse_args()
+
+    cfg = utils.load_cfg(args.config_file)
+    clock_frequency = float(cfg[utils.MCPAT_CFG_MODULE_NAME]["CLOCK_RATE"]) * 1.0e6
 
     block_additional = utils.load_block_additional(
         args.additional_block, args.module_index
@@ -97,6 +106,7 @@ def main():
     df = df.merge(
         block_additional[["block_id", "execution_cycles"]], on="block_id", how="inner"
     )
+    df["execution_time"] = df["execution_cycles"] / float(clock_frequency)
 
     # TODO: transform execution cycles to execution time
 
@@ -107,6 +117,7 @@ def main():
             "temp_max",
             "temp_area_weighted_mean",
             "execution_cycles",
+            "execution_time",
         ]
     ]
 

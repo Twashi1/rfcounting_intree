@@ -17,7 +17,7 @@ IntMap IntQ IntReg_0 IntReg_1 IntExec
 FPQ LdStQ ITB_0 ITB_1
 )
 
-prefixes=("" "iface_" "hsp_ "hsink_")
+prefixes=("" "iface_" "hsp_" "hsink_")
 
 for p in "${prefixes[@]}"; do
   for u in "${units[@]}"; do

@@ -41,7 +41,7 @@ def main():
     clock_frequency = int(cfg["mcpat"]["CLOCK_RATE"])
     clock_frequency_ghz = float(clock_frequency) / 1_000.0
     voltage_levels = utils.load_voltage_levels_from_cfg(cfg)
-    voltage_dict = {f"V{i}": v for i, v in enumerate(voltage_levels)}
+    voltage_dict = {f"{i}": v for i, v in enumerate(voltage_levels)}
     # Find required voltage for each basic block
     # TODO: should do this vectorised?
     per_block_required_voltage_levels = []
