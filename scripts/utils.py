@@ -139,8 +139,8 @@ def get_static_dynamic_power(unit_stats: dict, keys: list) -> float:
     total = 0.0
 
     for key in keys:
-        if key not in unit_stats:
-            raise RuntimeError(f"[WARN] Missing stat {key} from unit stats")
+        if key not in unit_stats or unit_stats[key] is None:
+            raise RuntimeError(f"[WARN] Missing stat {key} from unit stats {unit_stats}")
 
         stats = unit_stats[key]
         total += stats.get("Runtime Dynamic", 0)

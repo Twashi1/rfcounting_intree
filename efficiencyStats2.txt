@@ -1,0 +1,39 @@
+Estimating overall EDP to be: 1.8284471237171016
+Estimating overall EDP to be: 1.820483235831847
+EDP percentage change: 0.4375%
+Test name: symm
+Estimating overall EDP to be: 5.5864924295813605
+Estimating overall EDP to be: 5.2848800292269384
+EDP percentage change: 5.7071%
+Test name: 2mm
+Estimating overall EDP to be: 12.063773735634186
+Estimating overall EDP to be: 11.990612053285387
+EDP percentage change: 0.6102%
+Test name: 3mm
+Estimating overall EDP to be: 25.427002164609
+Estimating overall EDP to be: 23.825075547252343
+EDP percentage change: 6.7237%
+Test name: atax
+Estimating overall EDP to be: 0.0005738744180477496
+Estimating overall EDP to be: 0.0005738744180477498
+EDP percentage change: -0.0000%
+Test name: durbin
+Estimating overall EDP to be: 3.5593262827649574e-05
+Estimating overall EDP to be: 3.559326282764957e-05
+EDP percentage change: 0.0000%
+Test name: gemver
+Estimating overall EDP to be: 0.0018560877417664208
+Estimating overall EDP to be: 0.0018150982571442942
+EDP percentage change: 2.2583%
+Test name: lu
+Estimating overall EDP to be: 221.68190518124777
+Estimating overall EDP to be: 144.85383921313817
+EDP percentage change: 53.0383%
+Test name: ludcmp
+Estimating overall EDP to be: 196.4377905059191
+Estimating overall EDP to be: 136.8655554860273
+EDP percentage change: 43.5261%
+Test name: syrk
+Estimating overall EDP to be: 0.830320358312988
+Estimating overall EDP to be: 0.8226452366996637
+EDP percentage change: 0.9330%

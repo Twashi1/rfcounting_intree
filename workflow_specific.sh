@@ -27,16 +27,17 @@ sudo sh ./run_mcpat_all.sh "./mcpat_inputs/${test_name}"
 sudo python3 ./scripts/mcpat_to_ptrace.py --mcpat_outs="./mcpat_out/${test_name}" --module_index=2 --aggregate=likely
 
 # Generate heat data table
-sudo python3 ./scripts/per_program_table.py --name="${test_name}"
+sudo python3 ./scripts/per_program_table.py --name="./block_heats/${test_name}"
 
 # Add required voltages
-sudo python3 ./scripts/tei_effects.py --program_heat="${test_name}_ProgramHeat.csv" --out_prefix="${test_name}"
+sudo python3 ./scripts/tei_effects.py --program_heat="./block_heats/${test_name}_ProgramHeat.csv" --out_prefix="./block_heats/${test_name}"
 
 # Write voltages to VoltageLevels.csv
-sudo python3 ./scripts/read_voltages.py --tei_voltages="${test_name}_ProgramHeatVoltages.csv" --out_voltages="${test_name}_OutVoltages.csv"
+sudo python3 ./scripts/read_voltages.py --tei_voltages="./block_heats/${test_name}_ProgramHeatVoltages.csv" --out_voltages="./block_heats/${test_name}_OutVoltages.csv"
 
 # Calculate EDP
-sudo python3 ./scripts/calc_energy_efficiency.py --stats="./stats/${test_name}_mbb_STD.csv" --mcpat_outs="./mcpat_out/${test_name}" --old_voltage_levels="VoltageLevels.csv" --new_voltage_levels="${test_name}_OutVoltages.csv"
+echo "Test name: ${test_name}" >> "efficiencyStats.txt"
+sudo python3 ./scripts/calc_energy_efficiency.py --stats="./stats/${test_name}_mbb_STD.csv" --mcpat_outs="./mcpat_out/${test_name}" --old_voltage_levels="VoltageLevels.csv" --new_voltage_levels="./block_heats/${test_name}_OutVoltages.csv" >> "efficiencyStats.txt"
 
 # TODO: inserting DVS calls (gem5 now, not sniper)
 # TODO: lower IR to machine code
