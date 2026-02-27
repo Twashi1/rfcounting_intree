@@ -7,15 +7,23 @@ def calculate_edp(mcpat_df, frequency, stats_df) -> float:
     merged = mcpat_df.merge(stats_df, on="block_id")
     merged = merged.dropna(axis=0, how="any")
 
+    # # Now have: execution time per basic block, power of core per basic block, should have committed instructions per basic block too
+    # merged["energy"] = merged["execution_time"] * merged["Core"]
+    # merged["ipc"] = merged["instr_count"] / merged["cycle_count"]
+    # # TODO: maybe energy * ipc?
+    # # TODO: might need to check for IPC = 0 (would suggest instructions are 0 which is exceptional case, but still)
+    # # edp = P * (instr / (IPC * f))
+    # merged["edp"] = (merged["energy"] * merged["instr_count"]) / (
+    #     merged["ipc"] * frequency
+    # )
+
     # Now have: execution time per basic block, power of core per basic block, should have committed instructions per basic block too
     merged["energy"] = merged["execution_time"] * merged["Core"]
     merged["ipc"] = merged["instr_count"] / merged["cycle_count"]
-    # TODO: maybe energy * ipc?
-    # TODO: might need to check for IPC = 0 (would suggest instructions are 0 which is exceptional case, but still)
-    # edp = P * (instr / (IPC * f))
-    merged["edp"] = (merged["energy"] * merged["instr_count"]) / (
-        merged["ipc"] * frequency
-    )
+    # Per-block edp
+    merged["edp"] = merged["energy"] * merged["execution_time"]
+    # Overall edp, PT^2, we calculate energy per block, take sum, and then multiply by total time (delay)
+    overall_edp = merged["energy"].sum() * merged["execution_time"].sum()
 
     # print(
     #     merged[
@@ -32,9 +40,10 @@ def calculate_edp(mcpat_df, frequency, stats_df) -> float:
     #     ]
     # )
 
-    overall_edp = merged["energy"].sum() * (
-        merged["instr_count"].sum() / (merged["ipc"].mean() * frequency)
-    )
+    # TODO: this average instructions per cycle is not correct
+    # overall_edp = merged["energy"].sum() * (
+    #     merged["instr_count"].sum() / (merged["ipc"].mean() * frequency)
+    # )
 
     print(f"Estimating overall EDP to be: {overall_edp}")
 
@@ -91,6 +100,8 @@ def main():
     new_voltage_levels = utils.load_voltage_levels(args.new_voltage_levels)
     old_voltage_levels = utils.load_voltage_levels(args.old_voltage_levels)
 
+    print(new_voltage_levels, old_voltage_levels)
+
     # TODO: too much precision loss is possible?
     # TODO: deal with any N/A results (although shouldn't be any)
     stats_df["execution_time"] = stats_df["cycle_count"].astype(float) / frequency
@@ -116,7 +127,7 @@ def main():
 
     percent_change = ((new_edp - old_edp) / old_edp) * 100.0
 
-    print(f"EDP percentage change: {percent_change:.4f}%")
+    print(f"EDP percentage improvement: {percent_change:.4f}%")
 
 
 if __name__ == "__main__":

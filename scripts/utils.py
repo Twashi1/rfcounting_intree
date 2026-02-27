@@ -3,7 +3,9 @@ import xml.etree.ElementTree as ET
 import re
 import copy
 import math
+import subprocess
 from collections import defaultdict
+from pathlib import Path
 
 # not really required, but useful for some csv processing
 import pandas as pd
@@ -105,8 +107,41 @@ MCPAT_DESIRED_UNITS = [
 ]
 
 
+## FOOD BREAK
+# - use PowerTraceRequestSpec in request_power_trace_for_voltage
+
+
+class PowerTraceRequestSpec:
+    def __init__(
+        self,
+        block_id: int,
+        voltage_level: float,
+        voltage_levels: dict,
+        mcpat_input_folder: str,
+        mcpat_output_folder: str,
+        program_name: str,
+        stats_df: pd.DataFrame,
+        input_xml: str,
+        config,
+    ):
+        self.block_id = block_id
+        self.voltage_level = voltage_level
+        self.voltage_levels = voltage_levels
+        self.mcpat_input_folder = mcpat_input_folder
+        self.mcpat_output_folder = mcpat_output_folder
+        self.program_name = program_name
+        self.stats_dfD = stats_df
+        self.input_xml = input_xml
+        self.config = config
+
+    # TODO: existence of this function breaks our procedural paradigm, but its convenient
+    def change_to_other_config(self, block_id: int, voltage_level: float) -> None:
+        self.block_id = block_id
+        self.voltage_level = voltage_level
+
+
 # TODO: "name" is actually name prefix
-def mcpat_get_unit_stats(name: str, text: str) -> dict:
+def mcpat_get_unit_stats(name: str, text: str) -> dict | None:
     # Note sometimes a colon, sometimes not
     pattern = rf"\s*{re.escape(name)}.*\n((?:.+\s*=\s*.+\n)+)"
 
@@ -140,7 +175,9 @@ def get_static_dynamic_power(unit_stats: dict, keys: list) -> float:
 
     for key in keys:
         if key not in unit_stats or unit_stats[key] is None:
-            raise RuntimeError(f"[WARN] Missing stat {key} from unit stats {unit_stats}")
+            raise RuntimeError(
+                f"[WARN] Missing stat {key} from unit stats {unit_stats}"
+            )
 
         stats = unit_stats[key]
         total += stats.get("Runtime Dynamic", 0)
@@ -210,9 +247,7 @@ def load_folder_mcpat(folder_path: str, file_prefix: str = "") -> pd.DataFrame:
     return pd.DataFrame(all_data)
 
 
-def get_voltage(
-    temperature_celsius: float, target_frequency_ghz: float, voltage_levels: dict
-) -> float:
+def tei_get_voltage(temperature_celsius: float, target_frequency_ghz: float):
     # TODO: not too impactful most likely, but these constants are for 16nm!
     d_0 = -4.27
     d_1 = 0.0042
@@ -235,12 +270,131 @@ def get_voltage(
 
     required_voltage = (-b + math.sqrt(b * b - 4.0 * a * c)) / (2.0 * a)
 
-    print(
-        f"Temp {temperature_celsius} requires {required_voltage:.5f}V to maintain {target_frequency_ghz}GHz"
+    return required_voltage
+
+
+def tei_select_voltage(
+    config,
+    temperature_celsius: float,
+    target_frequency_ghz: float,
+    voltage_levels: dict,
+) -> float:
+    """
+    Given config options, select an appropriate voltage for the target frequency, considering the effects of TEI
+    """
+    baseline_voltage = float(config[MCPAT_CFG_MODULE_NAME]["BASELINE_VOLTAGE_LEVEL"])
+    attempt_temperature_optim = bool(
+        config[MCPAT_CFG_MODULE_NAME]["ATTEMPT_TEMPERATURE_OPTIM"]
+    )
+    low_temperature = float(config[MCPAT_CFG_MODULE_NAME]["TEMP_LOW"])
+    optim_temperature = float(config[MCPAT_CFG_MODULE_NAME]["TEMP_OPTIM"])
+    round_up = bool(config[MCPAT_CFG_MODULE_NAME]["ROUND_VOLTAGE_UP"])
+    voltage_adjustment = float(
+        config[MCPAT_CFG_MODULE_NAME]["VOLTAGE_UPWARDS_ADJUSTMENT"]
     )
 
-    # Returns just the closest voltage level
-    return min(voltage_levels, key=lambda k: abs(voltage_levels[k] - required_voltage))
+    required_voltage = tei_get_voltage(
+        temperature_celsius, target_frequency_ghz, voltage_levels, round_up
+    )
+    temperature_kelvin = temperature_celsius + 273.15
+
+    # Select up a voltage level
+    if (
+        attempt_temperature_optim
+        and temperature_kelvin < low_temperature
+        and temperature_kelvin < optim_temperature
+    ):
+        required_voltage += voltage_adjustment
+        # Increase voltage, but don't take it above the baseline, so we still prioritise energy
+        required_voltage = min(required_voltage, baseline_voltage)
+
+    sorted_voltages = sorted(voltage_levels.values())
+
+    epsilon = 0.01
+
+    if round_up:
+        for v in sorted_voltages:
+            if v >= (required_voltage - epsilon):
+                return v
+    else:
+        for v in reversed(sorted_voltages):
+            if v <= (required_voltage + epsilon):
+                return v
+
+    # We failed on either path, meaning required voltage was too high, or too low
+    if round_up:
+        # Required voltage was too high
+        # Return highest voltage we have
+        return sorted_voltages[-1]
+
+    # Required voltage was too low, return smallest voltage
+    return sorted_voltages[0]
+
+
+def generate_mcpat_power_name(
+    program_name: str, block_id: int, voltage_index: int
+) -> str:
+    return f"{program_name}_idx{block_id:04d}_v{voltage_index}"
+
+
+def get_voltage_index(voltage_levels: dict, voltage_level: float):
+    # Usually we expect voltage_level to be at one of the existing voltage levels
+    # however in the case its off by a small epsilon value, this will ensure
+    return max(
+        voltage_levels.keys(), key=lambda k: abs(voltage_levels[k] - voltage_level)
+    )
+
+
+def request_power_trace_for_voltage(
+    block_id: int,
+    voltage_level: float,
+    voltage_levels: dict,
+    mcpat_input_folder: str,
+    mcpat_output_folder: str,
+    program_name: str,
+    stats_df: pd.DataFrame,
+    input_xml: str,
+    config,
+):
+    # TODO: relatively trivial to take temperature at this point too
+    """
+    1. check if the given power trace already exists
+    2. or generate power trace ourself
+    - use states file and metadata to generate McPAT input
+    - run shell commands to generate mcpat output
+    3. extract mpcat power trace from file
+    4. once given power trace, extract to regular dataframe and return
+    """
+
+    file_name = generate_mcpat_power_name(
+        program_name, block_id, get_voltage_index(voltage_levels, voltage_level)
+    )
+    output_power_trace = f"./{mcpat_output_folder}/{file_name}.txt"
+    input_stats_xml = f"./{mcpat_input_folder}/{file_name}.xml"
+
+    path = Path(output_power_trace)
+
+    if not path.is_file():
+        print(
+            f"Generating mcpat file {output_power_trace}, {block_id=} {voltage_level=}"
+        )
+
+        modify_xml(
+            input_xml,
+            input_stats_xml,
+            stats_df[stats_df["block_id"] == block_id].to_dict(),
+            config,
+            get_voltage_index(voltage_levels, voltage_level),
+        )
+
+        subprocess.run(
+            ["./run_mcpat_specific.sh", f"{file_name}", f"{program_name}"], check=True
+        )
+
+    # Returns dictionary with power values for this given basic block
+    mcpat_dict = mcpat_to_dict(output_power_trace)
+
+    return mcpat_dict
 
 
 def get_distributed_voltage_levels(voltage_levels: list, num_values: int) -> list:
@@ -441,6 +595,182 @@ def get_block_ids(
     block_df = load_block_additional(additional_data, module_index)
 
     return block_df["block_id"].tolist()
+
+
+def mcpat_to_hotspot_units(
+    unit_stats: dict, flp_df: pd.DataFrame, use_residuals=True
+) -> dict:
+    # Unsure how to attribute most of these residuals, just doing the most impactful ones
+    # Instruction Fetch Unit residual
+    ifu_residual = get_static_dynamic_power(
+        unit_stats, ["Instruction Fetch Unit"]
+    ) - get_static_dynamic_power(
+        unit_stats,
+        [
+            "Instruction Cache",
+            "Branch Target Buffer",
+            "Branch Predictor",
+            "Instruction Buffer",
+            "Instruction Decoder",
+        ],
+    )
+
+    # Renaming Unit
+    renaming_residual = get_static_dynamic_power(
+        unit_stats, ["Renaming Unit"]
+    ) - get_static_dynamic_power(
+        unit_stats,
+        [
+            "Int Front End RAT",
+            "FP Front End RAT",
+            "Int Retire RAT",
+            "FP Retire RAT",
+            "FP Free List",
+            "Free List",
+        ],
+    )
+    # Load Store Unit
+    lsu_residual = get_static_dynamic_power(
+        unit_stats, ["Load Store Unit"]
+    ) - get_static_dynamic_power(
+        unit_stats,
+        [
+            "Data Cache",
+            "LoadQ",
+            "StoreQ",
+        ],
+    )
+
+    # Memory Management
+    mmu_residual = get_static_dynamic_power(
+        unit_stats, ["Memory Management Unit"]
+    ) - get_static_dynamic_power(
+        unit_stats,
+        [
+            "Itlb",
+            "Dtlb",
+        ],
+    )
+    # Execution Unit
+    execution_residual = get_static_dynamic_power(
+        unit_stats, ["Execution Unit"]
+    ) - get_static_dynamic_power(
+        unit_stats,
+        [
+            "Register Files",
+            "Instruction Scheduler",
+            "Integer ALU",
+            "Floating Point Unit",
+            "Results Broadcast Bus",
+        ],
+    )
+    execution_units = [
+        "FPAdd_0",
+        "FPAdd_1",
+        "FPReg_0",
+        "FPReg_1",
+        "FPReg_2",
+        "FPReg_3",
+        "FPMul_0",
+        "FPMul_1",
+        "FPQ",
+        "IntQ",
+        "IntExec",
+        "IntReg_0",
+        "IntReg_1",
+    ]
+
+    execution_total_area = flp_df.loc[
+        flp_df["unit"].isin(execution_units),
+        "area",
+    ].sum()
+
+    # Should only be one entry, max is arbitrary
+    area_fraction = (
+        lambda unit_name, area: flp_df.loc[flp_df["unit"] == unit_name, "area"].max()
+        / area
+    )
+
+    ifu_residual *= use_residuals
+    renaming_residual *= use_residuals
+    lsu_residual *= use_residuals
+    mmu_residual *= use_residuals
+    execution_residual *= use_residuals
+
+    l2_power = get_static_dynamic_power(unit_stats, ["L2"])
+    icache_power = get_static_dynamic_power(unit_stats, ["Instruction Cache"])
+    dcache_power = get_static_dynamic_power(unit_stats, ["Data Cache"])
+    bpred_power = get_static_dynamic_power(unit_stats, ["Branch Predictor"])
+    dtb_power = get_static_dynamic_power(unit_stats, ["Dtlb"])
+    fpu_power = get_static_dynamic_power(unit_stats, ["Floating Point Unit"])
+    fp_rf_power = get_static_dynamic_power(unit_stats, ["Floating Point RF"])
+    fp_map_power = get_static_dynamic_power(
+        unit_stats, ["FP Front End RAT", "FP Retire RAT", "FP Free List"]
+    )
+    int_map_power = get_static_dynamic_power(
+        unit_stats, ["Int Front End RAT", "Int Retire RAT", "Free List"]
+    )
+    intq_power = get_static_dynamic_power(unit_stats, ["Instruction Window"])
+    int_rf_power = get_static_dynamic_power(unit_stats, ["Integer RF"])
+    int_alu_power = get_static_dynamic_power(unit_stats, ["Integer ALU"])
+    fpq_power = get_static_dynamic_power(unit_stats, ["FP Instruction Window"])
+    lsq_power = get_static_dynamic_power(unit_stats, ["LoadQ", "StoreQ"])
+    itb_power = get_static_dynamic_power(unit_stats, ["Itlb"])
+
+    # Now map unit stats to hotspot
+    # Assuming Alpha EV6 floorplan
+    # TODO: Alpha EV6 seems to be different to the Alpha21364.xml we use as our baseline?
+    # Note we don't have a direct mapping, so we take some averages
+    # TODO: mathematical correctness of averaging? shouldn't we consider it to just be one component with less heat spread?
+    # TODO: unsure about which McPAT components to use
+    hotspot_mapping = {
+        "L2_left": l2_power / 3.0,
+        "L2": l2_power / 3.0,
+        "L2_right": l2_power / 3.0,
+        "Icache": icache_power,
+        "Dcache": dcache_power,
+        "Bpred_0": bpred_power / 3.0,
+        "Bpred_1": bpred_power / 3.0,
+        "Bpred_2": bpred_power / 3.0,
+        "DTB_0": dtb_power / 3.0,
+        "DTB_1": dtb_power / 3.0,
+        "DTB_2": dtb_power / 3.0,
+        # NOTE: averaging these ones over the Add and Mul units
+        "FPAdd_0": fpu_power / 4.0
+        + area_fraction("FPAdd_0", execution_total_area) * execution_residual,
+        "FPAdd_1": fpu_power / 4.0
+        + area_fraction("FPAdd_1", execution_total_area) * execution_residual,
+        "FPReg_0": fp_rf_power / 4.0
+        + area_fraction("FPReg_0", execution_total_area) * execution_residual,
+        "FPReg_1": fp_rf_power / 4.0
+        + area_fraction("FPReg_1", execution_total_area) * execution_residual,
+        "FPReg_2": fp_rf_power / 4.0
+        + area_fraction("FPReg_2", execution_total_area) * execution_residual,
+        "FPReg_3": fp_rf_power / 4.0
+        + area_fraction("FPReg_3", execution_total_area) * execution_residual,
+        "FPMul_0": fpu_power / 4.0
+        + area_fraction("FPMul_0", execution_total_area) * execution_residual,
+        "FPMul_1": fpu_power / 4.0
+        + area_fraction("FPMul_1", execution_total_area) * execution_residual,
+        "FPMap_0": fp_map_power / 2.0,
+        "FPMap_1": fp_map_power / 2.0,
+        "IntMap": int_map_power,
+        "IntQ": intq_power
+        + area_fraction("IntQ", execution_total_area) * execution_residual,
+        "IntReg_0": int_rf_power / 2.0
+        + area_fraction("IntReg_0", execution_total_area) * execution_residual,
+        "IntReg_1": int_rf_power / 2.0
+        + area_fraction("IntReg_1", execution_total_area) * execution_residual,
+        "IntExec": int_alu_power
+        + area_fraction("IntExec", execution_total_area) * execution_residual,
+        "FPQ": fpq_power
+        + area_fraction("FPQ", execution_total_area) * execution_residual,
+        "LdStQ": lsq_power,
+        "ITB_0": itb_power / 2.0,
+        "ITB_1": itb_power / 2.0,
+    }
+
+    return hotspot_mapping
 
 
 def set_voltages(voltage_file: str, voltages: list, block_ids: list):

@@ -1,3 +1,4 @@
+Test name: gemm
 Estimating overall EDP to be: 1.8284471237171016
 Estimating overall EDP to be: 1.820483235831847
 EDP percentage change: 0.4375%

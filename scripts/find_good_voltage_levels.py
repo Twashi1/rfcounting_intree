@@ -8,7 +8,7 @@ def main():
     step_size = (max_voltage - min_voltage) / float(num_steps)
     voltage_dict = {i: (min_voltage + step_size * i) for i in range(num_steps)}
 
-    for temp in range(60, 88, 2):
+    for temp in range(30, 88, 2):
         required_voltages = utils.get_voltage(temp, 3.0, voltage_dict)
         actual_voltage = voltage_dict[required_voltages]
 

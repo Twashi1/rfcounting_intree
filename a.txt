@@ -1,0 +1,14 @@
+- closest round up voltage, not lose performance
+- define baseline voltage in config file, not in script
+- find papers that improve energy efficiency at compile-time
+-  journals/conferences: CGO, CC, PACT, MICRO, ISCA, HPCA, ASPLOS, Journals: ACM TACO, ACM TECS, IEEE TC, IEEE TPDS, IEEE TCAD, IEEE TVLSI)
+- implementing remaining features
+  - block splitting
+  - run analysis on path-clubbed, not just per-basic block
+  - (just try, unlikely) gem5 instruction insertion and profiling
+
+Additional statistics per program
+- consider voltage scaling delay, get values from previous papers
+-   number of voltage scaling events
+- ips, edp, peak temp
+

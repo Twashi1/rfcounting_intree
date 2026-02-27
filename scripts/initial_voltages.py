@@ -25,10 +25,17 @@ def main():
     parser.add_argument(
         "--output", type=str, default="VoltageLevels.csv", help="Filename of output"
     )
+    parser.add_argument(
+        "--n", type=int, default=-1, help="Num voltage levels to create"
+    )
     args = parser.parse_args()
 
     # TODO: validation on voltage_level
     block_ids = utils.get_block_ids(args.module_index, args.additional_block)
+
+    if args.n > 0:
+        block_ids = [i for i in range(args.n)]
+
     utils.init_voltages(args.output, args.voltage_level, block_ids)
 
 

@@ -5,7 +5,6 @@ import argparse
 import re
 import pandas as pd
 import os
-import shutil
 import subprocess
 from collections import defaultdict, deque
 
@@ -51,183 +50,6 @@ def celsius_to_kelvin(celsius: float):
     return celsius + 273.15
 
 
-def mcpat_to_hotspot_units(
-    mcpat_out_file: str, flp_df: pd.DataFrame, use_residuals=True
-) -> dict:
-    unit_stats = utils.mcpat_to_dict(mcpat_out_file)
-
-    # Unsure how to attribute most of these residuals, just doing the most impactful ones
-    # Instruction Fetch Unit residual
-    ifu_residual = utils.get_static_dynamic_power(
-        unit_stats, ["Instruction Fetch Unit"]
-    ) - utils.get_static_dynamic_power(
-        unit_stats,
-        [
-            "Instruction Cache",
-            "Branch Target Buffer",
-            "Branch Predictor",
-            "Instruction Buffer",
-            "Instruction Decoder",
-        ],
-    )
-
-    # Renaming Unit
-    renaming_residual = utils.get_static_dynamic_power(
-        unit_stats, ["Renaming Unit"]
-    ) - utils.get_static_dynamic_power(
-        unit_stats,
-        [
-            "Int Front End RAT",
-            "FP Front End RAT",
-            "Int Retire RAT",
-            "FP Retire RAT",
-            "FP Free List",
-            "Free List",
-        ],
-    )
-    # Load Store Unit
-    lsu_residual = utils.get_static_dynamic_power(
-        unit_stats, ["Load Store Unit"]
-    ) - utils.get_static_dynamic_power(
-        unit_stats,
-        [
-            "Data Cache",
-            "LoadQ",
-            "StoreQ",
-        ],
-    )
-
-    # Memory Management
-    mmu_residual = utils.get_static_dynamic_power(
-        unit_stats, ["Memory Management Unit"]
-    ) - utils.get_static_dynamic_power(
-        unit_stats,
-        [
-            "Itlb",
-            "Dtlb",
-        ],
-    )
-    # Execution Unit
-    execution_residual = utils.get_static_dynamic_power(
-        unit_stats, ["Execution Unit"]
-    ) - utils.get_static_dynamic_power(
-        unit_stats,
-        [
-            "Register Files",
-            "Instruction Scheduler",
-            "Integer ALU",
-            "Floating Point Unit",
-            "Results Broadcast Bus",
-        ],
-    )
-    execution_units = [
-        "FPAdd_0",
-        "FPAdd_1",
-        "FPReg_0",
-        "FPReg_1",
-        "FPReg_2",
-        "FPReg_3",
-        "FPMul_0",
-        "FPMul_1",
-        "FPQ",
-        "IntQ",
-        "IntExec",
-        "IntReg_0",
-        "IntReg_1",
-    ]
-    execution_total_area = flp_df.loc[
-        flp_df["unit"].isin(set(execution_units)),
-        "area",
-    ].sum()
-
-    # Should only be one entry, max is arbitrary
-    area_fraction = (
-        lambda unit_name, area: flp_df.loc[flp_df["unit"] == unit_name, "area"].max()
-        / area
-    )
-
-    ifu_residual *= use_residuals
-    renaming_residual *= use_residuals
-    lsu_residual *= use_residuals
-    mmu_residual *= use_residuals
-    execution_residual *= use_residuals
-
-    l2_power = utils.get_static_dynamic_power(unit_stats, ["L2"])
-    icache_power = utils.get_static_dynamic_power(unit_stats, ["Instruction Cache"])
-    dcache_power = utils.get_static_dynamic_power(unit_stats, ["Data Cache"])
-    bpred_power = utils.get_static_dynamic_power(unit_stats, ["Branch Predictor"])
-    dtb_power = utils.get_static_dynamic_power(unit_stats, ["Dtlb"])
-    fpu_power = utils.get_static_dynamic_power(unit_stats, ["Floating Point Unit"])
-    fp_rf_power = utils.get_static_dynamic_power(unit_stats, ["Floating Point RF"])
-    fp_map_power = utils.get_static_dynamic_power(
-        unit_stats, ["FP Front End RAT", "FP Retire RAT", "FP Free List"]
-    )
-    int_map_power = utils.get_static_dynamic_power(
-        unit_stats, ["Int Front End RAT", "Int Retire RAT", "Free List"]
-    )
-    intq_power = utils.get_static_dynamic_power(unit_stats, ["Instruction Window"])
-    int_rf_power = utils.get_static_dynamic_power(unit_stats, ["Integer RF"])
-    int_alu_power = utils.get_static_dynamic_power(unit_stats, ["Integer ALU"])
-    fpq_power = utils.get_static_dynamic_power(unit_stats, ["FP Instruction Window"])
-    lsq_power = utils.get_static_dynamic_power(unit_stats, ["LoadQ", "StoreQ"])
-    itb_power = utils.get_static_dynamic_power(unit_stats, ["Itlb"])
-
-    # Now map unit stats to hotspot
-    # Assuming Alpha EV6 floorplan
-    # TODO: Alpha EV6 seems to be different to the Alpha21364.xml we use as our baseline?
-    # Note we don't have a direct mapping, so we take some averages
-    # TODO: mathematical correctness of averaging? shouldn't we consider it to just be one component with less heat spread?
-    # TODO: unsure about which McPAT components to use
-    hotspot_mapping = {
-        "L2_left": l2_power / 3.0,
-        "L2": l2_power / 3.0,
-        "L2_right": l2_power / 3.0,
-        "Icache": icache_power,
-        "Dcache": dcache_power,
-        "Bpred_0": bpred_power / 3.0,
-        "Bpred_1": bpred_power / 3.0,
-        "Bpred_2": bpred_power / 3.0,
-        "DTB_0": dtb_power / 3.0,
-        "DTB_1": dtb_power / 3.0,
-        "DTB_2": dtb_power / 3.0,
-        # NOTE: averaging these ones over the Add and Mul units
-        "FPAdd_0": fpu_power / 4.0
-        + area_fraction("FPAdd_0", execution_total_area) * execution_residual,
-        "FPAdd_1": fpu_power / 4.0
-        + area_fraction("FPAdd_1", execution_total_area) * execution_residual,
-        "FPReg_0": fp_rf_power / 4.0
-        + area_fraction("FPReg_0", execution_total_area) * execution_residual,
-        "FPReg_1": fp_rf_power / 4.0
-        + area_fraction("FPReg_1", execution_total_area) * execution_residual,
-        "FPReg_2": fp_rf_power / 4.0
-        + area_fraction("FPReg_2", execution_total_area) * execution_residual,
-        "FPReg_3": fp_rf_power / 4.0
-        + area_fraction("FPReg_3", execution_total_area) * execution_residual,
-        "FPMul_0": fpu_power / 4.0
-        + area_fraction("FPMul_0", execution_total_area) * execution_residual,
-        "FPMul_1": fpu_power / 4.0
-        + area_fraction("FPMul_1", execution_total_area) * execution_residual,
-        "FPMap_0": fp_map_power / 2.0,
-        "FPMap_1": fp_map_power / 2.0,
-        "IntMap": int_map_power,
-        "IntQ": intq_power
-        + area_fraction("IntQ", execution_total_area) * execution_residual,
-        "IntReg_0": int_rf_power / 2.0
-        + area_fraction("IntReg_0", execution_total_area) * execution_residual,
-        "IntReg_1": int_rf_power / 2.0
-        + area_fraction("IntReg_1", execution_total_area) * execution_residual,
-        "IntExec": int_alu_power
-        + area_fraction("IntExec", execution_total_area) * execution_residual,
-        "FPQ": fpq_power
-        + area_fraction("FPQ", execution_total_area) * execution_residual,
-        "LdStQ": lsq_power,
-        "ITB_0": itb_power / 2.0,
-        "ITB_1": itb_power / 2.0,
-    }
-
-    return hotspot_mapping
-
-
 # TODO: lots of code duplication between here and utils.load_folder_mcpat
 def load_folder_mcpat_to_hotspot(
     folder_path: str, file_prefix: str, floormap_df: pd.DataFrame, use_residuals=True
@@ -251,7 +73,11 @@ def load_folder_mcpat_to_hotspot(
         if not os.path.isfile(file_path):
             continue
 
-        hotspot_mappings = mcpat_to_hotspot_units(file_path, floormap_df, use_residuals)
+        unit_stats = utils.mcpat_to_dict(file_path)
+
+        hotspot_mappings = utils.mcpat_to_hotspot_units(
+            unit_stats, floormap_df, use_residuals
+        )
 
         match = pattern.match(f)
 
@@ -433,7 +259,7 @@ def aggregate_weighted_average(heats, branch_prob):
 
 def aggregate_most_likely(heats, branch_prob):
     # pythonic or ugly?
-    max_index, max_heat = max(enumerate(heats), key=lambda p: branch_prob[p[0]])
+    _max_index, max_heat = max(enumerate(heats), key=lambda p: branch_prob[p[0]])
 
     return max_heat
 
@@ -561,7 +387,20 @@ def calculate_all_heat(
 
     heatsink_offset = float(heatsink_offset)
 
-    # Add execution time column to the mcpat df
+    # TODO: lazy evaluation of voltages for mcpat
+    """
+    Instead of merging on block additional data
+    1. every function gets shipped with block additional
+        - no, instead each function gets shipped with the regular stats_df
+        - and we just read cycle_count from that
+    
+    - we assume we no longer have mcpat_df
+    - we do have stats_df as input to the function
+    - we also provide all required data to call the request function
+    -   bundle into a nice struct?
+    """
+
+    # Add execution cycles column to the mcpat df
     merged = mcpat_df.merge(additional_block, on="block_id")
 
     # TODO: implementation
