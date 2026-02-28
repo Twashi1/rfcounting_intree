@@ -41,25 +41,21 @@ def main():
     clock_frequency = int(cfg["mcpat"]["CLOCK_RATE"])
     clock_frequency_ghz = float(clock_frequency) / 1_000.0
     voltage_levels = utils.load_voltage_levels_from_cfg(cfg)
-    voltage_dict = {f"{i}": v for i, v in enumerate(voltage_levels)}
     # Find required voltage for each basic block
     # TODO: should do this vectorised?
     per_block_required_voltage_levels = []
-    per_block_required_voltages = []
 
     for _, row in heat_df.iterrows():
         # Convert to celsius
         est_temp = float(row["temp_max"]) - 273.15
-        required_voltage = utils.get_voltage(
-            est_temp, clock_frequency_ghz, voltage_dict
+        required_voltage = utils.tei_select_voltage(
+            cfg, est_temp, clock_frequency_ghz, voltage_levels
         )
 
         per_block_required_voltage_levels.append(required_voltage)
-        per_block_required_voltages.append(voltage_dict[required_voltage])
 
     # Output that as a table
-    heat_df["required_voltage"] = per_block_required_voltage_levels
-    heat_df["required_voltage_value"] = per_block_required_voltages
+    heat_df["required_voltage_value"] = per_block_required_voltage_levels
     heat_df.to_csv(f"{args.out_prefix}_ProgramHeatVoltages.csv", index=False)
 
 

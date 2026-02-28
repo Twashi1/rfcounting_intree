@@ -6,6 +6,7 @@ import re
 import pandas as pd
 import os
 import subprocess
+from pathlib import Path
 from collections import defaultdict, deque
 
 AGGREGATE_METHOD_WORST_CASE = "hottest"
@@ -102,9 +103,9 @@ def load_folder_mcpat_to_hotspot(
 def get_hotspot_temp(
     hotspot_ptrace: dict,
     execution_time: float,
-    config_file: str,
+    config,
     hotspot_config_file: str,
-    initial_heat: dict,
+    initial_heat: dict | None,
     heatsink_offset: float,
     name_id: str,
 ) -> dict:
@@ -197,7 +198,7 @@ def get_hotspot_temp(
     return heatmap_output
 
 
-def ordered_nodes(scc_topo: list, comp_to_nodes: dict, adj: pd.DataFrame):
+def ordered_nodes(scc_topo: list, comp_to_nodes: dict, adj: dict) -> list:
     # print(f"{scc_topo=}\n{comp_to_nodes=}\n{adj=}")
 
     topo_sorted = []
@@ -369,7 +370,8 @@ def read_heatmap_output(file_path: str) -> dict:
 
 
 def calculate_all_heat(
-    mcpat_df: pd.DataFrame,
+    stats_df: pd.DataFrame,
+    request_spec: utils.PowerTraceRequestSpec,
     approx_sorted_nodes: list,
     global_adj: dict,
     additional_block: pd.DataFrame,
@@ -377,9 +379,10 @@ def calculate_all_heat(
     dag: pd.DataFrame,
     aggregate_method: str,
     clock_rate: float,
-    config_file: str,
+    config,
     hotspot_config_file: str,
     heatsink_offset: float,
+    voltage_levels: list,
 ):
     # Clock rate given in MHz, need Hz
     clock_rate = float(clock_rate)
@@ -399,10 +402,6 @@ def calculate_all_heat(
     - we also provide all required data to call the request function
     -   bundle into a nice struct?
     """
-
-    # Add execution cycles column to the mcpat df
-    merged = mcpat_df.merge(additional_block, on="block_id")
-
     # TODO: implementation
     # - calculate the backwards mapping from a node to all its parents
     # - we are given the order to compute nodes in
@@ -438,19 +437,31 @@ def calculate_all_heat(
             parent_heats, prevs, node, additional_block, cfg, aggregate_method
         )
 
+        # TODO: this value should be from config
+        assumed_temperature = 77
+
         # TODO: output new_heat as input for hotspot
         # We were not able to get any priors to estimate heat from
         if new_heat is None or len(new_heat) == 0:
             new_heat = None
+        else:
+            # We take the peak temperature and use that in our assumption for McPAT
+            assumed_temperature = max(new_heat.values()) - 273.15
 
+        desired_voltage = utils.tei_select_voltage(
+            config, assumed_temperature, clock_rate / 1000.0, voltage_levels
+        )
         # Node is our block id, get execution time data for it, and the mcpat row data
-        print(f"Testing for block id: {node=}")
-        mcpat_ptrace = merged.loc[merged["block_id"] == node].iloc[0]
+        print(f"Getting power trace for block_id {node} {desired_voltage=}")
+        # Grab/generate power trace for this block
+        request_spec.change_to_other_config(node, desired_voltage)
+        mcpat_ptrace = utils.request_power_for_specification(request_spec)
+        # mcpat_ptrace = merged.loc[merged["block_id"] == node].iloc[0]
 
         final_heat = get_hotspot_temp(
             mcpat_ptrace,
             float(mcpat_ptrace["execution_cycles"]) / float(clock_rate),
-            config_file,
+            config,
             hotspot_config_file,
             new_heat,
             heatsink_offset,
@@ -467,6 +478,7 @@ def main():
         description="Generate initial ptrace files for each basic block"
     )
     parser.add_argument("--mcpat_outs", help="The path to the mcpat output directory")
+    parser.add_argument("--mcpat_ins", help="The path to the mcpat inputs directory")
     parser.add_argument(
         "--initial_temp_kelvin",
         type=float,
@@ -540,7 +552,27 @@ def main():
         default="./hotspot_files/ev6.flp",
         help="Hotspot floorplan",
     )
+    parser.add_argument(
+        "--stats",
+        type=str,
+        help="Path to the stats dataframe (likely in the stats folder)",
+    )
+    parser.add_argument(
+        "--basis_xml",
+        type=str,
+        default="./mcpat_inputs/Alpha21364.xml",
+        help="The basis xml file we modify to create our McPAT inputs, expecting Alpha21364, can leave default",
+    )
     args = parser.parse_args()
+
+    file_prefix = args.file_prefix
+    if file_prefix == "":
+        file_prefix = Path(args.mcpat_ins).resolve().name
+
+    if file_prefix is None or len(file_prefix) == 0:
+        raise RuntimeError(
+            "[ERROR] Couldn't get program prefix (--file_prefix), manually specified incorrectly?"
+        )
 
     flp_df = pd.read_csv(
         args.floorplan, delim_whitespace=True, header=None, index_col=0, comment="#"
@@ -556,25 +588,29 @@ def main():
     flp_df["area"] = flp_df["width"] * flp_df["height"]
 
     config_data = utils.load_cfg(args.configs)
-    mcpat_df = load_folder_mcpat_to_hotspot(
-        args.mcpat_outs,
-        args.file_prefix,
-        flp_df,
-        config_data["hotspot"]["INCLUDE_RESIDUALS"] == "true",
-    )
     cfg = utils.load_adjacency_list_cfg(args.control_flow, args.module_index)
     dag = utils.load_adjacency_list_dag(args.dag, args.module_index)
     topo = utils.load_topo_sort(args.topo_sort, args.module_index)
     additional_block = utils.load_block_additional(
         args.block_additional, args.module_index
     )
-    voltage_levels = utils.load_voltage_levels(args.voltage_levels_file)
+    # Per-block assumed voltage levels for manual input, but for us we now instead just calculate the right voltage live
+    standard_voltages = utils.load_voltage_levels_from_cfg(config_data)
+    stats_df = utils.load_standard_stat_file(args.stats)
 
-    mcpat_df_filtered = mcpat_df.loc[
-        mcpat_df.set_index(["block_id", "voltage"]).index.isin(
-            voltage_levels.set_index(["block_id", "voltage_level"]).index
-        )
-    ]
+    # TODO: mismatched types, we're expecting a dict
+    # although most functions can work off index/value list
+    request_spec = utils.PowerTraceRequestSpec(
+        0,
+        0.0,
+        standard_voltages,
+        args.mcpat_ins,
+        args.mcpat_outs,
+        file_prefix,
+        stats_df,
+        args.basis_xml,
+        config_data,
+    )
 
     # TODO: current goal, iterate over the the nodes, computing the final temperature, given the prev temperature(s)
     # 1. must have topologically sorted nodes
@@ -606,27 +642,31 @@ def main():
     # Roughly topologically sorted nodes
     approx_sorted_nodes = ordered_nodes(topo, comp_to_nodes, global_adj)
 
-    # mcpat_df: pd.DataFrame,
-    # approx_sorted_nodes: list,
-    # global_adj: dict,
-    # additional_block: pd.DataFrame,
-    # cfg: pd.DataFrame,
-    # dag: pd.DataFrame,
-    # aggregate_method: str,
-    # clock_rate: float,
-    # config_file: str,
+    #     mcpat_df: pd.DataFrame,
+    #     approx_sorted_nodes: list,
+    #     global_adj: dict,
+    #     additional_block: pd.DataFrame,
+    #     cfg: pd.DataFrame,
+    #     dag: pd.DataFrame,
+    #     aggregate_method: str,
+    #     clock_rate: float,
+    #     config,
+    #     hotspot_config_file: str,
+    #     heatsink_offset: float,
     all_block_heats = calculate_all_heat(
-        mcpat_df_filtered,
+        stats_df,
+        request_spec,
         approx_sorted_nodes,
         global_adj,
         additional_block,
         cfg,
         dag,
         args.aggregate,
-        config_data["mcpat"]["CLOCK_RATE"],
-        args.configs,
+        float(config_data["mcpat"]["CLOCK_RATE"]),
+        config_data,
         args.configs_hotspot,
-        config_data["hotspot"]["HEATSINK_OFFSET"],
+        float(config_data["hotspot"]["HEATSINK_OFFSET"]),
+        standard_voltages,
     )
 
     with open("HeatData.csv", "w") as f:

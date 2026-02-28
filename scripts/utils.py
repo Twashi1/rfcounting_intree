@@ -116,12 +116,12 @@ class PowerTraceRequestSpec:
         self,
         block_id: int,
         voltage_level: float,
-        voltage_levels: dict,
-        mcpat_input_folder: str,
+        voltage_levels: list,
+        mcpat_input_folder: str | None,
         mcpat_output_folder: str,
         program_name: str,
         stats_df: pd.DataFrame,
-        input_xml: str,
+        input_xml: str | None,
         config,
     ):
         self.block_id = block_id
@@ -130,7 +130,7 @@ class PowerTraceRequestSpec:
         self.mcpat_input_folder = mcpat_input_folder
         self.mcpat_output_folder = mcpat_output_folder
         self.program_name = program_name
-        self.stats_dfD = stats_df
+        self.stats_df = stats_df
         self.input_xml = input_xml
         self.config = config
 
@@ -277,7 +277,7 @@ def tei_select_voltage(
     config,
     temperature_celsius: float,
     target_frequency_ghz: float,
-    voltage_levels: dict,
+    voltage_levels: list,
 ) -> float:
     """
     Given config options, select an appropriate voltage for the target frequency, considering the effects of TEI
@@ -293,9 +293,7 @@ def tei_select_voltage(
         config[MCPAT_CFG_MODULE_NAME]["VOLTAGE_UPWARDS_ADJUSTMENT"]
     )
 
-    required_voltage = tei_get_voltage(
-        temperature_celsius, target_frequency_ghz, voltage_levels, round_up
-    )
+    required_voltage = tei_get_voltage(temperature_celsius, target_frequency_ghz)
     temperature_kelvin = temperature_celsius + 273.15
 
     # Select up a voltage level
@@ -308,16 +306,14 @@ def tei_select_voltage(
         # Increase voltage, but don't take it above the baseline, so we still prioritise energy
         required_voltage = min(required_voltage, baseline_voltage)
 
-    sorted_voltages = sorted(voltage_levels.values())
-
     epsilon = 0.01
 
     if round_up:
-        for v in sorted_voltages:
+        for v in voltage_levels:
             if v >= (required_voltage - epsilon):
                 return v
     else:
-        for v in reversed(sorted_voltages):
+        for v in reversed(voltage_levels):
             if v <= (required_voltage + epsilon):
                 return v
 
@@ -325,10 +321,10 @@ def tei_select_voltage(
     if round_up:
         # Required voltage was too high
         # Return highest voltage we have
-        return sorted_voltages[-1]
+        return voltage_levels[-1]
 
     # Required voltage was too low, return smallest voltage
-    return sorted_voltages[0]
+    return voltage_levels[0]
 
 
 def generate_mcpat_power_name(
@@ -337,24 +333,50 @@ def generate_mcpat_power_name(
     return f"{program_name}_idx{block_id:04d}_v{voltage_index}"
 
 
-def get_voltage_index(voltage_levels: dict, voltage_level: float):
+def get_voltage_index(voltage_levels: list, voltage_level: float) -> int:
     # Usually we expect voltage_level to be at one of the existing voltage levels
     # however in the case its off by a small epsilon value, this will ensure
-    return max(
-        voltage_levels.keys(), key=lambda k: abs(voltage_levels[k] - voltage_level)
+    max_index, _ = max(
+        enumerate(voltage_levels),
+        key=lambda p: abs(voltage_levels[p[0]] - voltage_level),
     )
 
+    return max_index
 
-def request_power_trace_for_voltage(
+
+def request_power_for_specification(
+    request_spec: PowerTraceRequestSpec, expect_exists=False
+):
+    power = _request_power_trace_for_voltage(
+        request_spec.block_id,
+        request_spec.voltage_level,
+        request_spec.voltage_levels,
+        request_spec.mcpat_input_folder,
+        request_spec.mcpat_output_folder,
+        request_spec.program_name,
+        request_spec.stats_df,
+        request_spec.input_xml,
+        request_spec.config,
+        expect_exists,
+    )
+
+    if power is None:
+        raise RuntimeError(
+            f"Program {request_spec.program_name} was missing power for {request_spec.block_id} at {request_spec.voltage_level}V"
+        )
+
+
+def _request_power_trace_for_voltage(
     block_id: int,
     voltage_level: float,
-    voltage_levels: dict,
-    mcpat_input_folder: str,
+    voltage_levels: list,
+    mcpat_input_folder: str | None,
     mcpat_output_folder: str,
     program_name: str,
     stats_df: pd.DataFrame,
-    input_xml: str,
+    input_xml: str | None,
     config,
+    expect_exists: bool,
 ):
     # TODO: relatively trivial to take temperature at this point too
     """
@@ -375,6 +397,15 @@ def request_power_trace_for_voltage(
     path = Path(output_power_trace)
 
     if not path.is_file():
+        if (
+            expect_exists
+            or input_xml == ""
+            or mcpat_input_folder == ""
+            or input_xml is None
+            or mcpat_input_folder is None
+        ):
+            return None
+
         print(
             f"Generating mcpat file {output_power_trace}, {block_id=} {voltage_level=}"
         )
@@ -473,7 +504,7 @@ def load_voltage_levels_from_cfg(cfg) -> list:
 
         voltage_levels.append(value)
 
-    return voltage_levels
+    return sorted(voltage_levels)
 
 
 def load_program_heats(heat_table: str) -> pd.DataFrame:

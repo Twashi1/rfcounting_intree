@@ -53,6 +53,7 @@ def main():
         default="PerBlockAdditional.csv",
         help="Additional block data for execution time",
     )
+    parser.add_argument("--stats", type=str, help="Per BB/path stats")
     parser.add_argument(
         "--module_index",
         type=int,
@@ -84,7 +85,7 @@ def main():
     flp_df["bottomy"] = flp_df["bottomy"].astype(float)
     flp_df["area"] = flp_df["width"] * flp_df["height"]
 
-    print(flp_df)
+    stats_df = utils.load_standard_stat_file(args.stats)
 
     df = pd.read_csv(args.heatdata, na_values=["nan", "NaN", ""])
     df = df.apply(pd.to_numeric, errors="coerce")
@@ -106,9 +107,15 @@ def main():
     df = df.merge(
         block_additional[["block_id", "execution_cycles"]], on="block_id", how="inner"
     )
+    df = df.merge(stats_df[["block_id", "frequency"]], on="block_id", how="inner")
     df["execution_time"] = df["execution_cycles"] / float(clock_frequency)
 
-    # TODO: transform execution cycles to execution time
+    # TODO: horribly inaccurate, two reasons
+    # 1. for path-clubbed, we should just take the frequency of the starting block
+    # 2. for any loop, we assume the DVS calling point occurs once/with constant value, so we can just move
+    #   that point to the pre-header trivially, thus should be freuqency/loop count, or we just never assign
+    #   a DVS calling point for a loop
+    df["dvs_calling_count"] = df["frequency"].astype(int)
 
     df = df[
         [
@@ -118,6 +125,7 @@ def main():
             "temp_area_weighted_mean",
             "execution_cycles",
             "execution_time",
+            "dvs_calling_count",
         ]
     ]
 

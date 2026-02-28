@@ -2,28 +2,23 @@ import argparse
 import utils
 
 
-def calculate_edp(mcpat_df, frequency, stats_df) -> float:
-    # TODO: apply filter to mcpat_df given voltage levels
-    merged = mcpat_df.merge(stats_df, on="block_id")
-    merged = merged.dropna(axis=0, how="any")
-
-    # # Now have: execution time per basic block, power of core per basic block, should have committed instructions per basic block too
-    # merged["energy"] = merged["execution_time"] * merged["Core"]
-    # merged["ipc"] = merged["instr_count"] / merged["cycle_count"]
-    # # TODO: maybe energy * ipc?
-    # # TODO: might need to check for IPC = 0 (would suggest instructions are 0 which is exceptional case, but still)
-    # # edp = P * (instr / (IPC * f))
-    # merged["edp"] = (merged["energy"] * merged["instr_count"]) / (
-    #     merged["ipc"] * frequency
-    # )
-
+def calculate_edp(
+    power_per_block: dict, frequency: float, stats_df: pd.DataFrame
+) -> float:
     # Now have: execution time per basic block, power of core per basic block, should have committed instructions per basic block too
-    merged["energy"] = merged["execution_time"] * merged["Core"]
-    merged["ipc"] = merged["instr_count"] / merged["cycle_count"]
+    stats_df["execution_time"] = stats_df["cycle_count"].astype(float) / frequency
+    stats_df["core_power"] = stats_df["block_id"].map(power_per_block)
+    stats_df["energy"] = stats_df["execution_time"] * stats_df["core_power"]
+    stats_df = stats_df.dropna()
+    stats_df["ipc"] = stats_df["instr_count"] / stats_df["cycle_count"]
     # Per-block edp
-    merged["edp"] = merged["energy"] * merged["execution_time"]
+    stats_df["edp"] = stats_df["energy"] * stats_df["execution_time"]
     # Overall edp, PT^2, we calculate energy per block, take sum, and then multiply by total time (delay)
-    overall_edp = merged["energy"].sum() * merged["execution_time"].sum()
+    overall_edp = stats_df["energy"].sum() * stats_df["execution_time"].sum()
+
+    # TODO: instead of execution time, we need to calculate frequency per block given the voltage
+    # we're running at (and the predicted initial temperature, so we need extra data not necessary available)
+    overall_ips = stats_df["instr_count"].sum() / stats_df["execution_time"].sum()
 
     # print(
     #     merged[
@@ -51,6 +46,7 @@ def calculate_edp(mcpat_df, frequency, stats_df) -> float:
 
 
 def main():
+    # TODO: utils some function to request power trace only if exists, and error otherwise
     parser = argparse.ArgumentParser(
         description="Calculate EDP per block, and over the whole program"
     )
@@ -70,22 +66,26 @@ def main():
         help="Directory with mcpat output power per path/basic block",
     )
     parser.add_argument(
+        "--mcpat_ins",
+        type=str,
+        help="Directory with mcpat input stats per path/basic block",
+    )
+    parser.add_argument(
+        "--input_xml",
+        type=str,
+        help="Default file to base our McPAT inputs off",
+        default="./mcpat_inputs/Alpha21364.xml",
+    )
+    parser.add_argument(
         "--file_prefix",
         type=str,
-        default="",
-        help="Last level directory name in mcpat outputs, usually the program name gemm/2mm/atax/covariance, can leave default to assume based on mcpat_outs",
+        help="Last level directory name in mcpat outputs, usually the program name gemm/2mm/atax/covariance",
     )
     parser.add_argument(
         "--new_voltage_levels",
         type=str,
         default="VoltageLevels.csv",
         help="The voltage levels to assume are being used for each basic block when estimating power",
-    )
-    parser.add_argument(
-        "--old_voltage_levels",
-        type=str,
-        default="VoltageLevels.csv",
-        help="The old voltage levels/fixed voltage levels to compare to",
     )
     args = parser.parse_args()
 
@@ -98,9 +98,6 @@ def main():
     # MHz -> Hz
     frequency = float(configs["mcpat"]["CLOCK_RATE"]) * 1_000_000.0
     new_voltage_levels = utils.load_voltage_levels(args.new_voltage_levels)
-    old_voltage_levels = utils.load_voltage_levels(args.old_voltage_levels)
-
-    print(new_voltage_levels, old_voltage_levels)
 
     # TODO: too much precision loss is possible?
     # TODO: deal with any N/A results (although shouldn't be any)
@@ -108,22 +105,46 @@ def main():
     total_execution_time = stats_df["execution_time"].sum()
 
     # correlate power to every BB by reading McPAT output stats
-    # TODO: apply some extra name on most columns to be "Core_power" and "L2_power" etc.
-    mcpat_df = utils.load_folder_mcpat(args.mcpat_outs, args.file_prefix)
-    # Filter voltages
-    new_mcpat_df = mcpat_df.loc[
-        mcpat_df.set_index(["block_id", "voltage"]).index.isin(
-            new_voltage_levels.set_index(["block_id", "voltage_level"]).index
-        )
-    ]
-    old_mcpat_df = mcpat_df.loc[
-        mcpat_df.set_index(["block_id", "voltage"]).index.isin(
-            old_voltage_levels.set_index(["block_id", "voltage_level"]).index
-        )
-    ]
+    num_blocks = stats_df["block_id"].max() + 1
+    core_power_per_block = {}
+    core_power_per_baseline_block = {}
+    request_spec = utils.PowerTraceRequestSpec(
+        0,
+        0.0,
+        utils.load_voltage_levels_from_cfg(configs),
+        "",
+        "",
+        args.file_prefix,
+        stats_df,
+        "",
+        configs,
+    )
 
-    new_edp = calculate_edp(new_mcpat_df, frequency, stats_df)
-    old_edp = calculate_edp(old_mcpat_df, frequency, stats_df)
+    for i in range(num_blocks):
+        block_voltage = new_voltage_levels.loc[new_voltage_levels["block_id" == i]]
+
+        if len(block_voltage) != 1:
+            raise ValueError(
+                f"Missing block, or too many voltage levels for block {i}, found {len(block_voltage)} entries instead of 1"
+            )
+
+        desired_voltage = block_voltage.iloc[0]
+        request_spec.change_to_other_config(i, desired_voltage)
+        baseline_voltage = configs["mcpat"]["BASELINE_VOLTAGE_LEVEL"]
+
+        power_trace = utils.request_power_for_specification(
+            request_spec, expect_exists=True
+        )
+        # request_power_for_specification_must_exist
+        core_power_per_block[i] = power_trace["Core"]
+
+        request_spec.change_to_other_config(i, block_voltage)
+        baseline_power_trace = utils.request_power_for_specification(request_spec)
+
+        core_power_per_baseline_block[i] = baseline_power_trace[i]
+
+    new_edp = calculate_edp(core_power_per_block, frequency, stats_df)
+    old_edp = calculate_edp(core_power_per_baseline_block, frequency, stats_df)
 
     percent_change = ((new_edp - old_edp) / old_edp) * 100.0
 
