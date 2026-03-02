@@ -27,11 +27,10 @@ def main():
 
     df = pd.read_csv(args.tei_voltages)
     df["required_voltage_value"] = df["required_voltage_value"].astype(float)
+    df["obtained_frequency"] = df["obtained_frequency"].astype(float)
 
-    voltage_df = df[["block_id", "required_voltage"]].copy()
-    voltage_df["voltage_level"] = df["required_voltage"]
-
-    # TODO: consider additional transformation where we select the closest voltage that actually has a power trace
+    voltage_df = df[["block_id", "required_voltage_value", "obtained_frequency"]].copy()
+    voltage_df["voltage_level"] = df["required_voltage_value"]
 
     # TODO: test
     voltage_df.to_csv(args.out_voltages, index=False)

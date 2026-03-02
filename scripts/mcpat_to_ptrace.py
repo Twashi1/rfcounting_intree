@@ -383,6 +383,8 @@ def calculate_all_heat(
     hotspot_config_file: str,
     heatsink_offset: float,
     voltage_levels: list,
+    use_residuals: bool,
+    flp_df: pd.DataFrame,
 ):
     # Clock rate given in MHz, need Hz
     clock_rate = float(clock_rate)
@@ -448,19 +450,31 @@ def calculate_all_heat(
             # We take the peak temperature and use that in our assumption for McPAT
             assumed_temperature = max(new_heat.values()) - 273.15
 
+        stat_block = stats_df.loc[stats_df["block_id"] == node]
+
+        if len(stat_block) != 1:
+            raise RuntimeError(
+                f"Stat dataframe had multiple entries for block id {node}"
+            )
+
+        execution_cycles = stat_block.iloc[0]["cycle_count"]
+
         desired_voltage = utils.tei_select_voltage(
-            config, assumed_temperature, clock_rate / 1000.0, voltage_levels
+            config, assumed_temperature, clock_rate / 1_000_000_000.0, voltage_levels
         )
         # Node is our block id, get execution time data for it, and the mcpat row data
         print(f"Getting power trace for block_id {node} {desired_voltage=}")
         # Grab/generate power trace for this block
         request_spec.change_to_other_config(node, desired_voltage)
         mcpat_ptrace = utils.request_power_for_specification(request_spec)
+        hotspot_ptrace = utils.mcpat_to_hotspot_units(
+            mcpat_ptrace, flp_df, use_residuals
+        )
         # mcpat_ptrace = merged.loc[merged["block_id"] == node].iloc[0]
 
         final_heat = get_hotspot_temp(
-            mcpat_ptrace,
-            float(mcpat_ptrace["execution_cycles"]) / float(clock_rate),
+            hotspot_ptrace,
+            float(execution_cycles) / float(clock_rate),
             config,
             hotspot_config_file,
             new_heat,
@@ -667,6 +681,8 @@ def main():
         args.configs_hotspot,
         float(config_data["hotspot"]["HEATSINK_OFFSET"]),
         standard_voltages,
+        bool(config_data["hotspot"]["INCLUDE_RESIDUALS"]),
+        flp_df,
     )
 
     with open("HeatData.csv", "w") as f:

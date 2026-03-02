@@ -44,18 +44,27 @@ def main():
     # Find required voltage for each basic block
     # TODO: should do this vectorised?
     per_block_required_voltage_levels = []
+    per_block_frequencies = []
 
+    # TODO: avoid iterrows
     for _, row in heat_df.iterrows():
         # Convert to celsius
         est_temp = float(row["temp_max"]) - 273.15
+
         required_voltage = utils.tei_select_voltage(
             cfg, est_temp, clock_frequency_ghz, voltage_levels
         )
 
+        obtained_frequency = utils.tei_get_frequency(est_temp, required_voltage)
+
         per_block_required_voltage_levels.append(required_voltage)
+        per_block_frequencies.append(obtained_frequency)
 
     # Output that as a table
     heat_df["required_voltage_value"] = per_block_required_voltage_levels
+    heat_df["obtained_frequency"] = per_block_frequencies
+    print(heat_df[["block_id", "obtained_frequency"]])
+    heat_df = heat_df.dropna()
     heat_df.to_csv(f"{args.out_prefix}_ProgramHeatVoltages.csv", index=False)
 
 

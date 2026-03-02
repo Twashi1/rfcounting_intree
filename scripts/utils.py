@@ -273,6 +273,26 @@ def tei_get_voltage(temperature_celsius: float, target_frequency_ghz: float):
     return required_voltage
 
 
+def tei_get_frequency(temperature_celsius: float, voltage: float):
+    d_0 = -4.27
+    d_1 = 0.0042
+    d_2 = 0.0052
+    d_3 = 10.6
+    d_4 = -2.66
+
+    # f_{max}=d_0 V_{dd}^2+d_1V_{dd}T+d_2T+d_3V_{dd}+d_4
+
+    # TODO: can re-arrange into a nice quadratic
+
+    return (
+        d_0 * voltage * voltage
+        + d_1 * voltage * temperature_celsius
+        + d_2 * temperature_celsius
+        + d_3 * voltage
+        + d_4
+    )
+
+
 def tei_select_voltage(
     config,
     temperature_celsius: float,
@@ -291,6 +311,10 @@ def tei_select_voltage(
     round_up = bool(config[MCPAT_CFG_MODULE_NAME]["ROUND_VOLTAGE_UP"])
     voltage_adjustment = float(
         config[MCPAT_CFG_MODULE_NAME]["VOLTAGE_UPWARDS_ADJUSTMENT"]
+    )
+
+    print(
+        f"Grabbing voltage for temp {temperature_celsius}, at freq {target_frequency_ghz}, for levels: {voltage_levels}"
     )
 
     required_voltage = tei_get_voltage(temperature_celsius, target_frequency_ghz)
@@ -336,7 +360,7 @@ def generate_mcpat_power_name(
 def get_voltage_index(voltage_levels: list, voltage_level: float) -> int:
     # Usually we expect voltage_level to be at one of the existing voltage levels
     # however in the case its off by a small epsilon value, this will ensure
-    max_index, _ = max(
+    max_index, _ = min(
         enumerate(voltage_levels),
         key=lambda p: abs(voltage_levels[p[0]] - voltage_level),
     )
@@ -365,6 +389,8 @@ def request_power_for_specification(
             f"Program {request_spec.program_name} was missing power for {request_spec.block_id} at {request_spec.voltage_level}V"
         )
 
+    return power
+
 
 def _request_power_trace_for_voltage(
     block_id: int,
@@ -391,6 +417,8 @@ def _request_power_trace_for_voltage(
     file_name = generate_mcpat_power_name(
         program_name, block_id, get_voltage_index(voltage_levels, voltage_level)
     )
+    print(f"Looking for file name: {file_name}")
+
     output_power_trace = f"./{mcpat_output_folder}/{file_name}.txt"
     input_stats_xml = f"./{mcpat_input_folder}/{file_name}.xml"
 
@@ -404,22 +432,28 @@ def _request_power_trace_for_voltage(
             or input_xml is None
             or mcpat_input_folder is None
         ):
+            print(
+                f"<RequestSpec: {block_id=} {voltage_level=} {voltage_levels=} {program_name=} {expect_exists=}>"
+            )
             return None
 
         print(
             f"Generating mcpat file {output_power_trace}, {block_id=} {voltage_level=}"
         )
 
+        # TODO: believe originates here, sometimes stats_df is very wrong
+        # some structure like {column: {0: value}, ...}
         modify_xml(
             input_xml,
             input_stats_xml,
-            stats_df[stats_df["block_id"] == block_id].to_dict(),
+            (stats_df.loc[stats_df["block_id"] == block_id].iloc[0]).to_dict(),
             config,
             get_voltage_index(voltage_levels, voltage_level),
         )
 
         subprocess.run(
-            ["./run_mcpat_specific.sh", f"{file_name}", f"{program_name}"], check=True
+            ["./run_mcpat_specific.sh", f"{file_name}", f"{program_name}"],
+            check=True,
         )
 
     # Returns dictionary with power values for this given basic block
@@ -576,7 +610,7 @@ def load_voltage_levels(path: str) -> pd.DataFrame:
 
     df = pd.DataFrame(csv_parts[0])
     df["block_id"] = df["block_id"].astype(int)
-    df["voltage_level"] = df["voltage_level"].astype(int)
+    df["voltage_level"] = df["voltage_level"].astype(float)
 
     return df
 
@@ -1160,7 +1194,7 @@ def modify_xml(
         "target_core_clockrate",
         str(mcpat_config[MCPAT_CLOCK_RATE]),
     )
-    change_xml_property(tree, "system", "param", "vdd", vdd)
+    change_xml_property(tree, "system/system.core0", "param", "vdd", vdd)
 
     change_xml_property(
         tree, "system", "stat", "total_cycles", str(input_stats[CYCLE_COUNT])

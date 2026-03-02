@@ -37,9 +37,6 @@ def main():
     loaded_stats = utils.load_standard_stat_file(args.stats)
     loaded_cfg = utils.load_cfg(args.input_cfg)
     voltage_levels = utils.load_voltage_levels_from_cfg(loaded_cfg)
-    voltage_index_to_generate = utils.get_distributed_voltage_levels(
-        voltage_levels, int(loaded_cfg["mcpat"]["COMPUTE_LEVELS"])
-    )
 
     # Generally not a good pattern, but whatever
     for _, row in loaded_stats.iterrows():
@@ -62,7 +59,7 @@ def main():
 
         # Really ugly, we're using a counter to distinguish, so its in order of appearance of _STD.csv file
         #   we have no metadata inside the McPAT output to support us, so we have to match these up later
-        for voltage_id in voltage_index_to_generate:
+        for voltage_id in range(len(voltage_levels)):
             utils.modify_xml(
                 args.input_xml,
                 path + f"_v{voltage_id}.xml",
