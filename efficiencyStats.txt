@@ -1,37 +1,44 @@
+
+# All stats are given as percentage increases
+# - EDP, lower is better
+# - Energy, lower is better
+# - IPS, higher is better
+# EDP@Constant, Energy@Constant - Measures difference between
+#   ETC:        Voltage: TEI-aware,  Frequency: Baseline, 3GHz
+#   Baseline:   Voltage: Baseline,   Frequency: Baseline, 3GHz
+# EDP@Potential, Energy@Potential - Measures difference between
+#   ETC:        Voltage: TEI-aware, Frequency: TEI-aware (potential maximum)
+#   Baseline:   Voltage: Baseline,  Frequency: Baseline, 3GHz 
+# IPS@Conservative - Measures difference between
+#   ETC:        Frequency: Minimum between TEI-aware, and baseline 
+#   Baseline:   Frequency: Baseline, 3GHz 
+# IPS@Potential - Measures difference between
+#   ETC:        Frequency: TEI-aware (potential maximum)
+#   Baseline:   Frequency: Baseline, 3GHz
+#
+# - Intended comparison is EDP@Constant, and IPS@Conservative
+#   - Even if we potentially have overhead allowing us a higher frequency under the selected voltages, we intend to only apply DVS, and thus we cannot make use of enhanced frequencies
+#   - IPS@Conservative models, to some degree, where we might lose performance since we were not able to support the required frequency with the selected voltage
+#   - In almost all configurations, IPS@Conservative should give 0.0% performance loss, or close to 0.0% performance loss, since we round up voltages to ensure we can always support the target frequency
+# - IPS not compared between ETC running at baseline frequency, and Baseline running at baseline frequency
 Test name: gemm
-EDP percentage improvement: 0.3372%
-IPS improvement: 22.7067%
-Test name: symm
-EDP percentage improvement: 0.0727%
-IPS improvement: 21.7404%
-Test name: syrk
-EDP percentage improvement: 31.6341%
-IPS improvement: 2.0999%
-Test name: gemver
-EDP percentage improvement: 31.6565%
-IPS improvement: 1.7859%
-Test name: 2mm
-EDP percentage improvement: 0.1964%
-IPS improvement: 22.1818%
-Test name: 3mm
-EDP percentage improvement: 0.2579%
-IPS improvement: 22.5854%
-Test name: adi
-EDP percentage improvement: 0.0589%
-IPS improvement: 22.0260%
-Test name: covariance
-EDP percentage improvement: 31.6788%
-IPS improvement: 1.7782%
-Test name: floyd-warshall
-EDP percentage improvement: 0.0943%
-IPS improvement: 19.2562%
-Test name: jacobi-2d
-EDP percentage improvement: 31.6817%
-IPS improvement: 1.8581%
-Test name: seidel-2d
-EDP percentage improvement: 31.6990%
-IPS improvement: 1.8601%
-# THIS GEM STAT IS FOR THE PATH-BASED, NEED TO TEST IF IT MAKES SENSE
+Energy@Constant: -31.7259%
+Energy@Potential: -32.5504%
+EDP@Constant: -31.7259%
+EDP@Potential: -33.3649%
+IPS@Conservative: -0.0060%
+IPS@Potential: 1.2163%
 Test name: gemm
-EDP percentage improvement: 31.7258%
-IPS improvement: 2.4016%
+Energy@Constant: -31.7259%
+Energy@Potential: -32.5504%
+EDP@Constant: -31.7259%
+EDP@Potential: -33.3649%
+IPS@Conservative: -0.0060%
+IPS@Potential: 1.2163%
+Test name: gemm
+Energy@Constant: -31.7259%
+Energy@Potential: -32.5504%
+EDP@Constant: -31.7259%
+EDP@Potential: -33.3649%
+IPS@Conservative: -0.0060%
+IPS@Potential: 1.2163%

@@ -1,6 +1,64 @@
 import argparse
+
+from numpy import power
 import utils
 import pandas as pd
+import os
+
+STAT_EXPLAINED = """
+# All stats are given as percentage increases
+# - EDP, lower is better
+# - Energy, lower is better
+# - IPS, higher is better
+# EDP@Constant, Energy@Constant - Measures difference between
+#   ETC:        Voltage: TEI-aware,  Frequency: Baseline, 3GHz
+#   Baseline:   Voltage: Baseline,   Frequency: Baseline, 3GHz
+# EDP@Potential, Energy@Potential - Measures difference between
+#   ETC:        Voltage: TEI-aware, Frequency: TEI-aware (potential maximum)
+#   Baseline:   Voltage: Baseline,  Frequency: Baseline, 3GHz 
+# IPS@Conservative - Measures difference between
+#   ETC:        Frequency: Minimum between TEI-aware, and baseline 
+#   Baseline:   Frequency: Baseline, 3GHz 
+# IPS@Potential - Measures difference between
+#   ETC:        Frequency: TEI-aware (potential maximum)
+#   Baseline:   Frequency: Baseline, 3GHz
+#
+# - Intended comparison is EDP@Constant, and IPS@Conservative
+#   - Even if we potentially have overhead allowing us a higher frequency under the selected voltages, we intend to only apply DVS, and thus we cannot make use of enhanced frequencies
+#   - IPS@Conservative models, to some degree, where we might lose performance since we were not able to support the required frequency with the selected voltage
+#   - In almost all configurations, IPS@Conservative should give 0.0% performance loss, or close to 0.0% performance loss, since we round up voltages to ensure we can always support the target frequency
+# - IPS not compared between ETC running at baseline frequency, and Baseline running at baseline frequency
+"""
+
+
+def percent_increase(new: float, old: float) -> float:
+    return (new - old) / old * 100.0
+
+
+def add_energy_column(
+    power_per_block: dict, frequency_per_block: dict, stats_df: pd.DataFrame
+):
+    stats_df["frequency_per_block"] = stats_df["block_id"].map(frequency_per_block)
+    stats_df["frequency_per_block"] = stats_df["frequency_per_block"].astype(float)
+    stats_df["frequency_per_block"] = stats_df["frequency_per_block"] * 1_000_000_000.0
+    stats_df = stats_df.dropna().copy()
+    stats_df["cycle_count"] = stats_df["cycle_count"].astype(float)
+    stats_df["execution_time"] = (
+        stats_df["cycle_count"] / stats_df["frequency_per_block"]
+    )
+    stats_df["core_power"] = stats_df["block_id"].map(power_per_block)
+    stats_df["energy"] = stats_df["execution_time"] * stats_df["core_power"]
+    stats_df = stats_df.dropna().copy()
+
+    return stats_df
+
+
+def calculate_energy(
+    power_per_block: dict, frequency_per_block: dict, stats_df: pd.DataFrame
+) -> float:
+    stats_df = add_energy_column(power_per_block, frequency_per_block, stats_df.copy())
+
+    return stats_df["energy"].sum()
 
 
 def calculate_edp(
@@ -8,27 +66,13 @@ def calculate_edp(
     frequency_per_block: dict,
     stats_df: pd.DataFrame,
 ) -> float:
+    stats_df = add_energy_column(power_per_block, frequency_per_block, stats_df)
     # Now have: execution time per basic block, power of core per basic block, should have committed instructions per basic block too
-    # TODO: use frequency per block
-    stats_df["frequency_per_block"] = stats_df["block_id"].map(frequency_per_block)
-    stats_df["frequency_per_block"] = stats_df["frequency_per_block"].astype(float)
-    stats_df["frequency_per_block"] = stats_df["block_id"] * 1_000_000_000.0
-    stats_df["cycle_count"] = stats_df["cycle_count"].astype(float)
-    stats_df["execution_time"] = (
-        stats_df["cycle_count"] / stats_df["frequency_per_block"]
-    )
-    stats_df["core_power"] = stats_df["block_id"].map(power_per_block)
-    stats_df["energy"] = stats_df["execution_time"] * stats_df["core_power"]
-    stats_df = stats_df.dropna()
     stats_df["ipc"] = stats_df["instr_count"] / stats_df["cycle_count"]
     # Per-block edp
     stats_df["edp"] = stats_df["energy"] * stats_df["execution_time"]
     # Overall edp, PT^2, we calculate energy per block, take sum, and then multiply by total time (delay)
     overall_edp = stats_df["energy"].sum() * stats_df["execution_time"].sum()
-
-    print("Total energy:", stats_df["energy"].sum())
-
-    print(f"Estimating overall EDP to be: {overall_edp}")
 
     return overall_edp
 
@@ -40,9 +84,12 @@ def calculate_ips(frequency_per_block: dict, stats_df: pd.DataFrame):
     stats_df["frequency_per_block"] = stats_df["frequency_per_block"].astype(float)
     stats_df["frequency_per_block"] = stats_df["frequency_per_block"] * 1_000_000_000.0
     stats_df["cycle_count"] = stats_df["cycle_count"].astype(float)
+    stats_df = stats_df.dropna().copy()
+
     stats_df["true_execution_time"] = (
         stats_df["cycle_count"] / stats_df["frequency_per_block"]
     )
+
     overall_ips = stats_df["instr_count"].sum() / stats_df["true_execution_time"].sum()
 
     return overall_ips
@@ -140,16 +187,17 @@ def main():
 
             continue
 
-        desired_voltage = block_voltage.iloc[0]["voltage_level"]
+        desired_voltage = float(block_voltage.iloc[0]["voltage_level"])
         baseline_voltage = float(configs["mcpat"]["BASELINE_VOLTAGE_LEVEL"])
 
-        desired_frequency = block_voltage.iloc[0]["obtained_frequency"]
+        desired_frequency = float(block_voltage.iloc[0]["obtained_frequency"])
         # TODO: instead of frequency, get the maximum frequency we would get at baseline voltage given temperature
         baseline_frequency = (
             float(configs[utils.MCPAT_CFG_MODULE_NAME][utils.MCPAT_CLOCK_RATE_MHZ])
             / 1000.0
         )
 
+        # Calculating the power where we use the TEI-aware voltage
         request_spec.change_to_other_config(i, desired_voltage)
         # TODO: we should expect this to exist, but sometimes it doesn't and it makes things very complicated
         power_trace = utils.request_power_for_specification(request_spec)
@@ -157,6 +205,7 @@ def main():
         core_power_per_block[i] = core_power
         core_frequency_per_block[i] = desired_frequency
 
+        # Calculating the power where we use the baseline voltage
         request_spec.change_to_other_config(i, baseline_voltage)
         baseline_power_trace = utils.request_power_for_specification(request_spec)
         core_baseline_power = utils.get_static_dynamic_power(
@@ -165,53 +214,80 @@ def main():
         core_power_per_baseline_block[i] = core_baseline_power
         core_frequency_per_baseline_block[i] = baseline_frequency
 
-    edp_tei_voltage_constant_freq = calculate_edp(
+    # Take per-block minimum of constant frequencies, and our tei frequencies
+    # NOTE: keys should be the same, but just for safety
+    minimum_frequency_per_block = {
+        k: min(core_frequency_per_block[k], core_frequency_constant[k])
+        for k in core_frequency_per_block.keys() & core_frequency_constant.keys()
+    }
+
+    # TODO:
+    #   the comparisons to make are
+    #   potentially consider taking the minimum between constant frequency, and tei frequency
+    #   representing the possibility we will select too low a voltage to support our target frequency
+    # EDP:
+    #   TEI voltage, Constant frequency : Baseline voltage, Constant frequency
+    # IPS:
+    #   TEI frequency : Constant frequency
+    # Energy:
+    #   TEI voltage, Constant frequency : Baseline voltage, Constant frequency
+    # Peak temperature (celsius, value):
+    #   TEI voltage, Constant frequency : Baseline voltage, Constant frequency
+    # TODO: Additional data required: temperature values assuming baseline voltage, and constant frequency
+    # TODO: make easy to parse for dataframe
+
+    edp_constant_etc = calculate_edp(
         core_power_per_block, core_frequency_constant, stats_df.copy()
     )
-    edp_baseline_voltage_constant_freq = calculate_edp(
+    edp_potential_etc = calculate_edp(
+        core_power_per_block, core_frequency_per_block, stats_df.copy()
+    )
+    edp_baseline = calculate_edp(
         core_power_per_baseline_block,
         core_frequency_constant,
         stats_df.copy(),
     )
 
-    ips_tei_voltage_tei_freq = calculate_ips(core_frequency_per_block, stats_df.copy())
-    ips_tei_voltage_constant_freq = calculate_ips(
-        core_frequency_constant, stats_df.copy()
+    ips_potential_etc = calculate_ips(core_frequency_per_block, stats_df.copy())
+    ips_conservative_etc = calculate_ips(minimum_frequency_per_block, stats_df.copy())
+    ips_baseline = calculate_ips(core_frequency_constant, stats_df.copy())
+
+    energy_constant_etc = calculate_energy(
+        core_power_per_block, core_frequency_constant, stats_df.copy()
     )
-    # TODO: additional one we need is running the tei voltages at new voltage, and maximum allowed freuqency at those new temperatures/voltages
+    energy_potential_etc = calculate_energy(
+        core_power_per_block, core_frequency_per_block, stats_df.copy()
+    )
+    energy_baseline = calculate_energy(
+        core_power_per_baseline_block,
+        core_frequency_constant,
+        stats_df.copy(),
+    )
 
-    percent_down = (
-        (edp_baseline_voltage_constant_freq - edp_tei_voltage_constant_freq)
-        / edp_baseline_voltage_constant_freq
-    ) * 100.0
-    ips_up = (
-        (ips_tei_voltage_tei_freq - ips_tei_voltage_constant_freq)
-        / ips_tei_voltage_constant_freq
-    ) * 100.0
+    energy_constant_increase = percent_increase(energy_constant_etc, energy_baseline)
+    energy_potential_increase = percent_increase(energy_potential_etc, energy_baseline)
 
-    print(f"EDP percentage improvement: {percent_down:.4f}%")
-    print(f"IPS improvement: {ips_up:.4f}%")
+    edp_constant_increase = percent_increase(edp_constant_etc, edp_baseline)
+    edp_potential_increase = percent_increase(edp_potential_etc, edp_baseline)
 
-    # Explanation of results
-    # We compare our energy-delay tradeoff tbetween our tie-aware voltages, and the baseline voltage, assuming we run both at 3GHz
-    # We compute the IPS percentage improvement for two scenarios
-    # - assuming both approaches are run with maximum frequency according to TEI
-    # - assuming we run our approach at maximum tei-aware freuency, compared to baseline voltage at baseline frequency
-    # - assuming run our approach at constant frequency, compared to baseline voltage at maximum tei frequency
-    # TODO: best comparison would be both approaches running at TEI-aware frequency?
-    #  including calculating our EDP at that tei-aware frequency
+    ips_conservative_increase = percent_increase(ips_conservative_etc, ips_baseline)
+    ips_potential_increase = percent_increase(ips_potential_etc, ips_baseline)
+
+    stats_existed = os.path.exists("efficiencyStats.txt")
+
     with open("efficiencyStats.txt", "a") as f:
+        if not stats_existed:
+            f.write(STAT_EXPLAINED)
+
         f.write(f"Test name: {args.file_prefix}\n")
-        f.write(
-            f"EDP percentage improvement (assume constant frequency): {percent_down:.4f}%\n"
-        )
-        # TODO: need some additional things t cmpute
-        # f.write(
-        #     f"IPS percentage improvement (assume max-allowed tei frequency): {ips_up:.4f}%\n"
-        # )
-        f.write(
-            f"IPS percentage improvement (assume max-allowed tei frequency for ETC, compared to constant frequency): {ips_up:.4f}%\n"
-        )
+        f.write(f"Energy@Constant: {energy_constant_increase:.4f}%\n")
+        f.write(f"Energy@Potential: {energy_potential_increase:.4f}%\n")
+
+        f.write(f"EDP@Constant: {edp_constant_increase:.4f}%\n")
+        f.write(f"EDP@Potential: {edp_potential_increase:.4f}%\n")
+
+        f.write(f"IPS@Conservative: {ips_conservative_increase:.4f}%\n")
+        f.write(f"IPS@Potential: {ips_potential_increase:.4f}%\n")
 
 
 if __name__ == "__main__":

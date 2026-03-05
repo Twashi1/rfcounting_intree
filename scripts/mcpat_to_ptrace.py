@@ -383,7 +383,7 @@ def estimate_block_heat(
     override_voltage: float | None = None,
 ) -> dict:
     use_residuals = bool(
-        config[utils.MCPAT_CFG_MODULE_NAME][utils.HOTSPOT_INCLUDE_RESIDUALS]
+        config[utils.HOTSPOT_MODULE_NAME][utils.HOTSPOT_INCLUDE_RESIDUALS]
     )
     clock_rate_mhz = float(
         config[utils.MCPAT_CFG_MODULE_NAME][utils.MCPAT_CLOCK_RATE_MHZ]
