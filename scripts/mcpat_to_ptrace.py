@@ -199,8 +199,6 @@ def get_hotspot_temp(
 
 
 def ordered_nodes(scc_topo: list, comp_to_nodes: dict, adj: dict) -> list:
-    # print(f"{scc_topo=}\n{comp_to_nodes=}\n{adj=}")
-
     topo_sorted = []
 
     for comp in scc_topo:
@@ -304,7 +302,7 @@ def aggregate_heat_data(
         branch_prob.append(prob)
 
     if abs(sum(branch_prob) - 1.0) > 0.05:
-        print("[WARN] Branch probabilities summed to not close to 1! Should normalise?")
+        utils.warn("Branch probabilities summed to not close to 1! Should normalise?")
 
         # Normalisation
         total = sum(branch_prob)
@@ -364,9 +362,97 @@ def read_heatmap_output(file_path: str) -> dict:
 
     # TODO: this is expected whenever we have >1 sample, not worth the error
     if len(df) > 1:
-        print("[WARN] DF had more than one row, we just take the first")
+        utils.warn("DF had more than one row, we just take the first")
 
     return df.iloc[-1].to_dict()
+
+
+def estimate_block_heat(
+    parents: defaultdict,
+    node,
+    additional_block: pd.DataFrame,
+    stats_df: pd.DataFrame,
+    cfg: pd.DataFrame,
+    config,
+    aggregate_method: str,
+    request_spec: utils.PowerTraceRequestSpec,
+    heat_data: dict,
+    flp_df: pd.DataFrame,
+    voltage_levels: list,
+    hotspot_config_file: str,
+    override_voltage: float | None = None,
+) -> dict:
+    use_residuals = bool(
+        config[utils.MCPAT_CFG_MODULE_NAME][utils.HOTSPOT_INCLUDE_RESIDUALS]
+    )
+    clock_rate_mhz = float(
+        config[utils.MCPAT_CFG_MODULE_NAME][utils.MCPAT_CLOCK_RATE_MHZ]
+    )
+    clock_rate_ghz = clock_rate_mhz / 1e03
+    clock_rate_hz = clock_rate_mhz * 1e06
+
+    heatsink_offset = float(
+        config[utils.HOTSPOT_MODULE_NAME][utils.HOTSPOT_HEATSINK_OFFSET]
+    )
+
+    # Get all parents
+    prevs = parents[node]
+    # Get heat data of all parents
+    parent_heats = {
+        parent: heat_data[parent] for parent in prevs if parent in heat_data
+    }
+
+    print(f"Block id: {node=} has {len(parent_heats)} parents, or {prevs} dependencies")
+
+    # Get the new heat
+    new_heat = aggregate_heat_data(
+        parent_heats, prevs, node, additional_block, cfg, aggregate_method
+    )
+
+    # TODO: this value should be from config
+    assumed_temperature = 77
+
+    # TODO: output new_heat as input for hotspot
+    # We were not able to get any priors to estimate heat from
+    if new_heat is None or len(new_heat) == 0:
+        new_heat = None
+    else:
+        # We take the peak temperature and use that in our assumption for McPAT
+        assumed_temperature = max(new_heat.values()) - 273.15
+
+    stat_block = stats_df.loc[stats_df["block_id"] == node]
+
+    if len(stat_block) != 1:
+        utils.fatal(f"Stat dataframe had multiple entries for block id {node}")
+
+    execution_cycles = stat_block.iloc[0]["cycle_count"]
+
+    desired_voltage = utils.tei_select_voltage(
+        config, assumed_temperature, clock_rate_ghz, voltage_levels
+    )
+
+    if override_voltage is not None:
+        desired_voltage = override_voltage
+
+    # Node is our block id, get execution time data for it, and the mcpat row data
+    print(f"Getting power trace for block_id {node} {desired_voltage=}")
+    # Grab/generate power trace for this block
+    request_spec.change_to_other_config(node, desired_voltage)
+    mcpat_ptrace = utils.request_power_for_specification(request_spec)
+    hotspot_ptrace = utils.mcpat_to_hotspot_units(mcpat_ptrace, flp_df, use_residuals)
+    # mcpat_ptrace = merged.loc[merged["block_id"] == node].iloc[0]
+
+    final_heat = get_hotspot_temp(
+        hotspot_ptrace,
+        float(execution_cycles) / float(clock_rate_hz),
+        config,
+        hotspot_config_file,
+        new_heat,
+        heatsink_offset,
+        f"{node:04d}",
+    )
+
+    return final_heat
 
 
 def calculate_all_heat(
@@ -376,23 +462,16 @@ def calculate_all_heat(
     global_adj: dict,
     additional_block: pd.DataFrame,
     cfg: pd.DataFrame,
-    dag: pd.DataFrame,
     aggregate_method: str,
-    clock_rate: float,
     config,
     hotspot_config_file: str,
-    heatsink_offset: float,
     voltage_levels: list,
-    use_residuals: bool,
     flp_df: pd.DataFrame,
 ):
-    # Clock rate given in MHz, need Hz
-    clock_rate = float(clock_rate)
-    clock_rate *= 1.0e6
+    maximum_heat = float(
+        config[utils.MCPAT_CFG_MODULE_NAME][utils.MCPAT_TEMP_SAFEGUARD_MAX]
+    )
 
-    heatsink_offset = float(heatsink_offset)
-
-    # TODO: lazy evaluation of voltages for mcpat
     """
     Instead of merging on block additional data
     1. every function gets shipped with block additional
@@ -404,13 +483,6 @@ def calculate_all_heat(
     - we also provide all required data to call the request function
     -   bundle into a nice struct?
     """
-    # TODO: implementation
-    # - calculate the backwards mapping from a node to all its parents
-    # - we are given the order to compute nodes in
-    # - we iterate this order
-    # - for each node, look at all its parents, and grab the heat data (stored here too)
-    # - get hotspot_temp given the heat data, execution time, etc.
-    # - store this heat data
 
     # Store all heat data for each node
     heat_data = dict()
@@ -423,66 +495,41 @@ def calculate_all_heat(
             parents[end].append(start)
 
     for node in approx_sorted_nodes:
-        # Get all parents
-        prevs = parents[node]
-        # Get heat data of all parents
-        parent_heats = {
-            parent: heat_data[parent] for parent in prevs if parent in heat_data
-        }
-
-        print(
-            f"Block id: {node=} has {len(parent_heats)} parents, or {prevs} dependencies"
-        )
-
-        # Get the new heat
-        new_heat = aggregate_heat_data(
-            parent_heats, prevs, node, additional_block, cfg, aggregate_method
-        )
-
-        # TODO: this value should be from config
-        assumed_temperature = 77
-
-        # TODO: output new_heat as input for hotspot
-        # We were not able to get any priors to estimate heat from
-        if new_heat is None or len(new_heat) == 0:
-            new_heat = None
-        else:
-            # We take the peak temperature and use that in our assumption for McPAT
-            assumed_temperature = max(new_heat.values()) - 273.15
-
-        stat_block = stats_df.loc[stats_df["block_id"] == node]
-
-        if len(stat_block) != 1:
-            raise RuntimeError(
-                f"Stat dataframe had multiple entries for block id {node}"
-            )
-
-        execution_cycles = stat_block.iloc[0]["cycle_count"]
-
-        desired_voltage = utils.tei_select_voltage(
-            config, assumed_temperature, clock_rate / 1_000_000_000.0, voltage_levels
-        )
-        # Node is our block id, get execution time data for it, and the mcpat row data
-        print(f"Getting power trace for block_id {node} {desired_voltage=}")
-        # Grab/generate power trace for this block
-        request_spec.change_to_other_config(node, desired_voltage)
-        mcpat_ptrace = utils.request_power_for_specification(request_spec)
-        hotspot_ptrace = utils.mcpat_to_hotspot_units(
-            mcpat_ptrace, flp_df, use_residuals
-        )
-        # mcpat_ptrace = merged.loc[merged["block_id"] == node].iloc[0]
-
-        final_heat = get_hotspot_temp(
-            hotspot_ptrace,
-            float(execution_cycles) / float(clock_rate),
+        block_heat = estimate_block_heat(
+            parents,
+            node,
+            additional_block,
+            stats_df,
+            cfg,
             config,
+            aggregate_method,
+            request_spec,
+            heat_data,
+            flp_df,
+            voltage_levels,
             hotspot_config_file,
-            new_heat,
-            heatsink_offset,
-            f"{node:04d}",
         )
 
-        heat_data[node] = final_heat
+        if max(block_heat.values) >= maximum_heat:
+            adjustment = min(voltage_levels)
+            utils.warn(
+                "Block has gone above thermal safeguard, adjusting voltage to minimum"
+            )
+            block_heat = estimate_block_heat(
+                parents,
+                node,
+                additional_block,
+                stats_df,
+                cfg,
+                config,
+                aggregate_method,
+                request_spec,
+                heat_data,
+                flp_df,
+                voltage_levels,
+                hotspot_config_file,
+                adjustment,
+            )
 
     return heat_data
 
@@ -541,7 +588,6 @@ def main():
         default="CFG.csv",
         help="The control flow graph csv file",
     )
-    parser.add_argument("--dag", type=str, default="DAG.csv", help="Path to DAG file")
     parser.add_argument(
         "--block_additional",
         type=str,
@@ -584,8 +630,8 @@ def main():
         file_prefix = Path(args.mcpat_ins).resolve().name
 
     if file_prefix is None or len(file_prefix) == 0:
-        raise RuntimeError(
-            "[ERROR] Couldn't get program prefix (--file_prefix), manually specified incorrectly?"
+        utils.fatal(
+            "Couldn't get program prefix (--file_prefix), manually specified incorrectly?"
         )
 
     flp_df = pd.read_csv(
@@ -603,7 +649,6 @@ def main():
 
     config_data = utils.load_cfg(args.configs)
     cfg = utils.load_adjacency_list_cfg(args.control_flow, args.module_index)
-    dag = utils.load_adjacency_list_dag(args.dag, args.module_index)
     topo = utils.load_topo_sort(args.topo_sort, args.module_index)
     additional_block = utils.load_block_additional(
         args.block_additional, args.module_index
@@ -626,16 +671,6 @@ def main():
         config_data,
     )
 
-    # TODO: current goal, iterate over the the nodes, computing the final temperature, given the prev temperature(s)
-    # 1. must have topologically sorted nodes
-    # 2. must have mapping of node -> parents (reverse mapping)
-    # 3. must be able to turn output temperature into initial temperature (unsure?)
-
-    # NOTE: we cannot guarantee parents are always visited first, so sometimes we default to initial temperatures
-    # 1. all SCC dependencies will be visited first
-    # 2. within an SCC, we attempt to visit dependencies first, but can't always because of cycles
-    #  - (TODO) prioritise in order of block id if not, since lower block id means higher in program means probably executed first
-
     # Component to nodes mapping (transforming df)
     comp_to_nodes_set = defaultdict(set)
 
@@ -656,17 +691,6 @@ def main():
     # Roughly topologically sorted nodes
     approx_sorted_nodes = ordered_nodes(topo, comp_to_nodes, global_adj)
 
-    #     mcpat_df: pd.DataFrame,
-    #     approx_sorted_nodes: list,
-    #     global_adj: dict,
-    #     additional_block: pd.DataFrame,
-    #     cfg: pd.DataFrame,
-    #     dag: pd.DataFrame,
-    #     aggregate_method: str,
-    #     clock_rate: float,
-    #     config,
-    #     hotspot_config_file: str,
-    #     heatsink_offset: float,
     all_block_heats = calculate_all_heat(
         stats_df,
         request_spec,
@@ -674,14 +698,10 @@ def main():
         global_adj,
         additional_block,
         cfg,
-        dag,
         args.aggregate,
-        float(config_data["mcpat"]["CLOCK_RATE"]),
         config_data,
         args.configs_hotspot,
-        float(config_data["hotspot"]["HEATSINK_OFFSET"]),
         standard_voltages,
-        bool(config_data["hotspot"]["INCLUDE_RESIDUALS"]),
         flp_df,
     )
 

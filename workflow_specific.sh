@@ -10,7 +10,6 @@ sudo bash ./buildpoly_specific.sh "${polybench_path}"
 rm -f ./stats/${test_name}_mbb_STD.csv ./stats/${test_name}_path_STD.csv
 
 python3 ./scripts/create_stats.py --input_file=MBB_stats.csv --output=./stats/${test_name}_mbb --module_index=2 --take_sum=0
-#python3 ./scripts/create_stats.py --input_file=PathBlocks.csv --output=./stats/${test_name}_path --module_index=2 --path_index=-1
 
 # TODO: note this shouldn't be used in any meaningful way, should remove soon
 sudo python3 ./scripts/initial_voltages.py --voltage_level=5 --module_index=2
@@ -37,7 +36,3 @@ sudo python3 ./scripts/read_voltages.py --tei_voltages="./block_heats/${test_nam
 
 # Calculate EDP
 sudo python3 ./scripts/calc_energy_efficiency.py --stats="./stats/${test_name}_mbb_STD.csv" --mcpat_ins="./mcpat_inputs/${test_name}" --mcpat_outs="./mcpat_out/${test_name}" --new_voltage_levels="./block_heats/${test_name}_OutVoltages.csv" --file_prefix="${test_name}"
-
-# TODO: inserting DVS calls (gem5 now, not sniper)
-# TODO: lower IR to machine code
-# TODO: test in gem5

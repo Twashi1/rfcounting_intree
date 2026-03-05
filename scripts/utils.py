@@ -4,21 +4,28 @@ import re
 import copy
 import math
 import subprocess
+import inspect
+import os
+import pandas as pd
+import configparser
 from collections import defaultdict
 from pathlib import Path
 
-# not really required, but useful for some csv processing
-import pandas as pd
-import configparser
-import os
-
 MCPAT_CFG_MODULE_NAME = "mcpat"
-MCPAT_CLOCK_RATE = "CLOCK_RATE"
+MCPAT_CLOCK_RATE_MHZ = "CLOCK_RATE"
 MCPAT_TEMP = "TEMP"
 MCPAT_NODE_SIZE = "NODE_SIZE"
-MCPAT_VOLTAGE_LOW = "VOLTAGE_LOW"
-MCPAT_VOLTAGE_MED = "VOLTAGE_MED"
-MCPAT_VOLTAGE_HIGH = "VOLTAGE_HIGH"
+MCPAT_BASELINE_VOLTAGE = "BASELINE_VOLTAGE_LEVEL"
+MCPAT_VOLTAGE_UPWARDS_ADJUSTMENT = "VOLTAGE_UPWARDS_ADJUSTMENT"
+MCPAT_TEMP_LOW = "TEMP_LOW"
+MCPAT_TEMP_OPTIM = "TEMP_OPTIM"
+MCPAT_TEMP_SAFEGUARD_MAX = "TEMP_SAFEGUARD_MAX"
+MCPAT_ATTEMPT_TEMP_OPTIM = "ATTEMPT_TEMP_OPTIM"
+MCPAT_ROUND_UP = "ROUND_VOLTAGE_UP"
+
+HOTSPOT_MODULE_NAME = "hotspot"
+HOTSPOT_INCLUDE_RESIDUALS = "INCLUDE_RESIDUALS"
+HOTSPOT_HEATSINK_OFFSET = "HEATSINK_OFFSET"
 
 # NOTE: should be an enum but it'd be difficult to use as keys
 MODULE_NAME = "module_name"
@@ -107,8 +114,34 @@ MCPAT_DESIRED_UNITS = [
 ]
 
 
-## FOOD BREAK
-# - use PowerTraceRequestSpec in request_power_trace_for_voltage
+def _grab_metadata():
+    current_frame = inspect.currentframe()
+
+    assert current_frame is not None
+    assert current_frame.f_back is not None
+    assert current_frame.f_back.f_back is not None
+
+    frame = current_frame.f_back.f_back
+    line = frame.f_lineno
+    script = os.path.basename(frame.f_globals["__file__"])
+
+    return script, line
+
+
+def warn(message):
+    script, line = _grab_metadata()
+    print(f"[WARN {script}:{line}] {message}")
+
+
+def error(message):
+    script, line = _grab_metadata()
+    print(f"[ERROR {script}:{line}] {message}")
+
+
+def fatal(message):
+    script, line = _grab_metadata()
+    print(f"[FATAL {script}:{line}] {message}")
+    raise RuntimeError(f"[FATAL {script}:{line}] {message}")
 
 
 class PowerTraceRequestSpec:
@@ -175,9 +208,7 @@ def get_static_dynamic_power(unit_stats: dict, keys: list) -> float:
 
     for key in keys:
         if key not in unit_stats or unit_stats[key] is None:
-            raise RuntimeError(
-                f"[WARN] Missing stat {key} from unit stats {unit_stats}"
-            )
+            fatal(f"Missing stat {key} from unit stats {unit_stats}")
 
         stats = unit_stats[key]
         total += stats.get("Runtime Dynamic", 0)
@@ -302,15 +333,15 @@ def tei_select_voltage(
     """
     Given config options, select an appropriate voltage for the target frequency, considering the effects of TEI
     """
-    baseline_voltage = float(config[MCPAT_CFG_MODULE_NAME]["BASELINE_VOLTAGE_LEVEL"])
+    baseline_voltage = float(config[MCPAT_CFG_MODULE_NAME][MCPAT_BASELINE_VOLTAGE])
     attempt_temperature_optim = bool(
-        config[MCPAT_CFG_MODULE_NAME]["ATTEMPT_TEMPERATURE_OPTIM"]
+        config[MCPAT_CFG_MODULE_NAME][MCPAT_ATTEMPT_TEMP_OPTIM]
     )
-    low_temperature = float(config[MCPAT_CFG_MODULE_NAME]["TEMP_LOW"])
-    optim_temperature = float(config[MCPAT_CFG_MODULE_NAME]["TEMP_OPTIM"])
-    round_up = bool(config[MCPAT_CFG_MODULE_NAME]["ROUND_VOLTAGE_UP"])
+    low_temperature = float(config[MCPAT_CFG_MODULE_NAME][MCPAT_TEMP_LOW])
+    optim_temperature = float(config[MCPAT_CFG_MODULE_NAME][MCPAT_TEMP_OPTIM])
+    round_up = bool(config[MCPAT_CFG_MODULE_NAME][MCPAT_ROUND_UP])
     voltage_adjustment = float(
-        config[MCPAT_CFG_MODULE_NAME]["VOLTAGE_UPWARDS_ADJUSTMENT"]
+        config[MCPAT_CFG_MODULE_NAME][MCPAT_VOLTAGE_UPWARDS_ADJUSTMENT]
     )
 
     print(
@@ -531,8 +562,8 @@ def load_voltage_levels_from_cfg(cfg) -> list:
             raise ValueError("Voltage levels must be non-decreasing!")
 
         if value == prev_voltage:
-            print(
-                "[WARN] Omit voltage levels if unused, do not have same voltage value for multiple voltage levels"
+            warn(
+                "Omit voltage levels if unused, do not have same voltage value for multiple voltage levels"
             )
             break
 
@@ -870,7 +901,7 @@ def change_xml_property(
     element = tree.find(xpath)
 
     if element is None:
-        print(f"[WARN] Element {component_path}/{name} was not found, adding")
+        print(f"Element {component_path}/{name} was not found, adding")
         parent = tree.find(parent_path)
 
         if parent is None:
@@ -1166,16 +1197,6 @@ def modify_xml(
 ) -> None:
     tree = ET.parse(input_path)
 
-    if not isinstance(input_stats, dict):
-        # print("[WARN] Input stats was not a dictionary")
-
-        if len(input_stats) != 1:
-            print(
-                "[WARN] Constructing XML file, but passed more than one stat instance, expected a single stat instance"
-            )
-
-        input_stats = input_stats.iloc[0].to_dict()
-
     voltage_levels = load_voltage_levels_from_cfg(input_cfg)
     vdd = f"{voltage_levels[voltage_level_id]:.2f}"
 
@@ -1192,7 +1213,7 @@ def modify_xml(
         "system",
         "param",
         "target_core_clockrate",
-        str(mcpat_config[MCPAT_CLOCK_RATE]),
+        str(mcpat_config[MCPAT_CLOCK_RATE_MHZ]),
     )
     change_xml_property(tree, "system/system.core0", "param", "vdd", vdd)
 
@@ -1207,7 +1228,7 @@ def modify_xml(
         "system/system.core0",
         "param",
         "clock_rate",
-        str(mcpat_config[MCPAT_CLOCK_RATE]),
+        str(mcpat_config[MCPAT_CLOCK_RATE_MHZ]),
     )
     change_xml_property(
         tree,
@@ -1542,7 +1563,7 @@ def modify_xml(
         "system/system.L1Directory0",
         "param",
         "clockrate",
-        str(mcpat_config[MCPAT_CLOCK_RATE]),
+        str(mcpat_config[MCPAT_CLOCK_RATE_MHZ]),
     )
     change_xml_property(
         tree,
@@ -1568,7 +1589,7 @@ def modify_xml(
         "system/system.L2Directory0",
         "param",
         "clockrate",
-        str(mcpat_config[MCPAT_CLOCK_RATE]),
+        str(mcpat_config[MCPAT_CLOCK_RATE_MHZ]),
     )
     change_xml_property(
         tree, "system/system.L2Directory0", "stat", "read_accesses", str(0)
@@ -1588,7 +1609,7 @@ def modify_xml(
         "system/system.L20",
         "param",
         "clockrate",
-        str(mcpat_config[MCPAT_CLOCK_RATE]),
+        str(mcpat_config[MCPAT_CLOCK_RATE_MHZ]),
     )
     change_xml_property(tree, "system/system.L20", "stat", "read_accesses", str(0))
     change_xml_property(tree, "system/system.L20", "stat", "write_accesses", str(0))
@@ -1612,7 +1633,7 @@ def modify_xml(
         "system/system.NoC0",
         "param",
         "clockrate",
-        str(mcpat_config[MCPAT_CLOCK_RATE]),
+        str(mcpat_config[MCPAT_CLOCK_RATE_MHZ]),
     )
 
     change_xml_property(

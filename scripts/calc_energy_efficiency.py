@@ -5,14 +5,19 @@ import pandas as pd
 
 def calculate_edp(
     power_per_block: dict,
-    frequency: float,
+    frequency_per_block: dict,
     stats_df: pd.DataFrame,
 ) -> float:
     # Now have: execution time per basic block, power of core per basic block, should have committed instructions per basic block too
     # TODO: use frequency per block
-    stats_df["execution_time"] = stats_df["cycle_count"].astype(float) / frequency
+    stats_df["frequency_per_block"] = stats_df["block_id"].map(frequency_per_block)
+    stats_df["frequency_per_block"] = stats_df["frequency_per_block"].astype(float)
+    stats_df["frequency_per_block"] = stats_df["block_id"] * 1_000_000_000.0
+    stats_df["cycle_count"] = stats_df["cycle_count"].astype(float)
+    stats_df["execution_time"] = (
+        stats_df["cycle_count"] / stats_df["frequency_per_block"]
+    )
     stats_df["core_power"] = stats_df["block_id"].map(power_per_block)
-    print(stats_df[["block_id", "core_power", "execution_time"]])
     stats_df["energy"] = stats_df["execution_time"] * stats_df["core_power"]
     stats_df = stats_df.dropna()
     stats_df["ipc"] = stats_df["instr_count"] / stats_df["cycle_count"]
@@ -93,8 +98,10 @@ def main():
     # - over the entire program, sum up the energy calculation, and take a whole-program average of IPC
     stats_df = utils.load_standard_stat_file(args.stats)
     configs = utils.load_cfg(args.input_cfg)
-    # MHz -> Hz
-    frequency = float(configs["mcpat"]["CLOCK_RATE"]) * 1_000_000.0
+    # MHz -> GHz
+    frequency = (
+        float(configs[utils.MCPAT_CFG_MODULE_NAME][utils.MCPAT_CLOCK_RATE_MHZ]) / 1000.0
+    )
     new_voltage_levels = utils.load_voltage_levels(args.new_voltage_levels)
 
     # TODO: too much precision loss is possible?
@@ -108,6 +115,7 @@ def main():
     core_power_per_baseline_block = {}
     core_frequency_per_block = {}
     core_frequency_per_baseline_block = {}
+    core_frequency_constant = {}
     request_spec = utils.PowerTraceRequestSpec(
         0,
         0.0,
@@ -123,10 +131,11 @@ def main():
     for i in range(num_blocks):
         print(f"Evaluating efficiency for block {i=}")
         block_voltage = new_voltage_levels.loc[new_voltage_levels["block_id"] == i]
+        core_frequency_constant[i] = frequency
 
         if len(block_voltage) != 1:
-            print(
-                f"[WARN] Missing block, or too many voltage levels for block {i}, found {len(block_voltage)} entries instead of 1"
+            utils.warn(
+                f"Missing block, or too many voltage levels for block {i}, found {len(block_voltage)} entries instead of 1"
             )
 
             continue
@@ -135,7 +144,11 @@ def main():
         baseline_voltage = float(configs["mcpat"]["BASELINE_VOLTAGE_LEVEL"])
 
         desired_frequency = block_voltage.iloc[0]["obtained_frequency"]
-        baseline_frequency = float(configs["mcpat"]["CLOCK_RATE"]) / 1000.0
+        # TODO: instead of frequency, get the maximum frequency we would get at baseline voltage given temperature
+        baseline_frequency = (
+            float(configs[utils.MCPAT_CFG_MODULE_NAME][utils.MCPAT_CLOCK_RATE_MHZ])
+            / 1000.0
+        )
 
         request_spec.change_to_other_config(i, desired_voltage)
         # TODO: we should expect this to exist, but sometimes it doesn't and it makes things very complicated
@@ -152,28 +165,53 @@ def main():
         core_power_per_baseline_block[i] = core_baseline_power
         core_frequency_per_baseline_block[i] = baseline_frequency
 
-    new_edp = calculate_edp(core_power_per_block, frequency, stats_df.copy())
-    old_edp = calculate_edp(
+    edp_tei_voltage_constant_freq = calculate_edp(
+        core_power_per_block, core_frequency_constant, stats_df.copy()
+    )
+    edp_baseline_voltage_constant_freq = calculate_edp(
         core_power_per_baseline_block,
-        frequency,
+        core_frequency_constant,
         stats_df.copy(),
     )
 
-    print(core_frequency_per_block)
+    ips_tei_voltage_tei_freq = calculate_ips(core_frequency_per_block, stats_df.copy())
+    ips_tei_voltage_constant_freq = calculate_ips(
+        core_frequency_constant, stats_df.copy()
+    )
+    # TODO: additional one we need is running the tei voltages at new voltage, and maximum allowed freuqency at those new temperatures/voltages
 
-    new_ips = calculate_ips(core_frequency_per_block, stats_df.copy())
-    old_ips = calculate_ips(core_frequency_per_baseline_block, stats_df.copy())
-
-    percent_down = ((old_edp - new_edp) / old_edp) * 100.0
-    ips_up = ((new_ips - old_ips) / old_ips) * 100.0
+    percent_down = (
+        (edp_baseline_voltage_constant_freq - edp_tei_voltage_constant_freq)
+        / edp_baseline_voltage_constant_freq
+    ) * 100.0
+    ips_up = (
+        (ips_tei_voltage_tei_freq - ips_tei_voltage_constant_freq)
+        / ips_tei_voltage_constant_freq
+    ) * 100.0
 
     print(f"EDP percentage improvement: {percent_down:.4f}%")
     print(f"IPS improvement: {ips_up:.4f}%")
 
+    # Explanation of results
+    # We compare our energy-delay tradeoff tbetween our tie-aware voltages, and the baseline voltage, assuming we run both at 3GHz
+    # We compute the IPS percentage improvement for two scenarios
+    # - assuming both approaches are run with maximum frequency according to TEI
+    # - assuming we run our approach at maximum tei-aware freuency, compared to baseline voltage at baseline frequency
+    # - assuming run our approach at constant frequency, compared to baseline voltage at maximum tei frequency
+    # TODO: best comparison would be both approaches running at TEI-aware frequency?
+    #  including calculating our EDP at that tei-aware frequency
     with open("efficiencyStats.txt", "a") as f:
         f.write(f"Test name: {args.file_prefix}\n")
-        f.write(f"EDP percentage improvement: {percent_down:.4f}%\n")
-        f.write(f"IPS improvement: {ips_up:.4f}%\n")
+        f.write(
+            f"EDP percentage improvement (assume constant frequency): {percent_down:.4f}%\n"
+        )
+        # TODO: need some additional things t cmpute
+        # f.write(
+        #     f"IPS percentage improvement (assume max-allowed tei frequency): {ips_up:.4f}%\n"
+        # )
+        f.write(
+            f"IPS percentage improvement (assume max-allowed tei frequency for ETC, compared to constant frequency): {ips_up:.4f}%\n"
+        )
 
 
 if __name__ == "__main__":
