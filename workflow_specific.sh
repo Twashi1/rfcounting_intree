@@ -27,6 +27,7 @@ sudo python3 ./scripts/mcpat_to_ptrace.py --mcpat_outs="./mcpat_out/${test_name}
 
 # Generate heat data table
 sudo python3 ./scripts/per_program_table.py --name="./block_heats/${test_name}" --stats="./stats/${test_name}_mbb_STD.csv"
+sudo python3 ./scripts/per_program_table.py --heatdata="HeatDataBaseline.csv" --name="./block_heats/${test_name}_Baseline" --stats="./stats/${test_name}_mbb_STD.csv"
 
 # Add required voltages
 sudo python3 ./scripts/tei_effects.py --program_heat="./block_heats/${test_name}_ProgramHeat.csv" --out_prefix="./block_heats/${test_name}"
@@ -36,3 +37,6 @@ sudo python3 ./scripts/read_voltages.py --tei_voltages="./block_heats/${test_nam
 
 # Calculate EDP
 sudo python3 ./scripts/calc_energy_efficiency.py --stats="./stats/${test_name}_mbb_STD.csv" --mcpat_ins="./mcpat_inputs/${test_name}" --mcpat_outs="./mcpat_out/${test_name}" --new_voltage_levels="./block_heats/${test_name}_OutVoltages.csv" --file_prefix="${test_name}"
+
+# Calculate temperature difference
+sudo python3 ./scripts/temp_difference.py --etc_heat="./block_heats/${test_name}_ProgramHeat.csv" --baseline_heat="./block_heats/${test_name}_Baseline_ProgramHeat.csv" --out_prefix="./block_heats/${test_name}"

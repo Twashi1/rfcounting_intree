@@ -22,23 +22,9 @@
 #   - In almost all configurations, IPS@Conservative should give 0.0% performance loss, or close to 0.0% performance loss, since we round up voltages to ensure we can always support the target frequency
 # - IPS not compared between ETC running at baseline frequency, and Baseline running at baseline frequency
 Test name: gemm
-Energy@Constant: -31.7259%
-Energy@Potential: -32.5504%
-EDP@Constant: -31.7259%
-EDP@Potential: -33.3649%
-IPS@Conservative: -0.0060%
-IPS@Potential: 1.2163%
-Test name: gemm
-Energy@Constant: -31.7259%
-Energy@Potential: -32.5504%
-EDP@Constant: -31.7259%
-EDP@Potential: -33.3649%
-IPS@Conservative: -0.0060%
-IPS@Potential: 1.2163%
-Test name: gemm
-Energy@Constant: -31.7259%
-Energy@Potential: -32.5504%
-EDP@Constant: -31.7259%
-EDP@Potential: -33.3649%
-IPS@Conservative: -0.0060%
-IPS@Potential: 1.2163%
+Energy@Constant: -0.3372%
+Energy@Potential: -18.8361%
+EDP@Constant: -0.3372%
+EDP@Potential: -33.8553%
+IPS@Conservative: -0.0766%
+IPS@Potential: 22.6127%

@@ -1,6 +1,4 @@
 import argparse
-
-from numpy import power
 import utils
 import pandas as pd
 import os
@@ -13,9 +11,6 @@ STAT_EXPLAINED = """
 # EDP@Constant, Energy@Constant - Measures difference between
 #   ETC:        Voltage: TEI-aware,  Frequency: Baseline, 3GHz
 #   Baseline:   Voltage: Baseline,   Frequency: Baseline, 3GHz
-# EDP@Potential, Energy@Potential - Measures difference between
-#   ETC:        Voltage: TEI-aware, Frequency: TEI-aware (potential maximum)
-#   Baseline:   Voltage: Baseline,  Frequency: Baseline, 3GHz 
 # IPS@Conservative - Measures difference between
 #   ETC:        Frequency: Minimum between TEI-aware, and baseline 
 #   Baseline:   Frequency: Baseline, 3GHz 
@@ -264,11 +259,13 @@ def main():
         stats_df.copy(),
     )
 
+    # NOTE: potential stats were removed because they didn't consider the change in power
+    #   due to higher frequency
     energy_constant_increase = percent_increase(energy_constant_etc, energy_baseline)
-    energy_potential_increase = percent_increase(energy_potential_etc, energy_baseline)
+    #   energy_potential_increase = percent_increase(energy_potential_etc, energy_baseline)
 
     edp_constant_increase = percent_increase(edp_constant_etc, edp_baseline)
-    edp_potential_increase = percent_increase(edp_potential_etc, edp_baseline)
+    #    edp_potential_increase = percent_increase(edp_potential_etc, edp_baseline)
 
     ips_conservative_increase = percent_increase(ips_conservative_etc, ips_baseline)
     ips_potential_increase = percent_increase(ips_potential_etc, ips_baseline)
@@ -281,10 +278,8 @@ def main():
 
         f.write(f"Test name: {args.file_prefix}\n")
         f.write(f"Energy@Constant: {energy_constant_increase:.4f}%\n")
-        f.write(f"Energy@Potential: {energy_potential_increase:.4f}%\n")
 
         f.write(f"EDP@Constant: {edp_constant_increase:.4f}%\n")
-        f.write(f"EDP@Potential: {edp_potential_increase:.4f}%\n")
 
         f.write(f"IPS@Conservative: {ips_conservative_increase:.4f}%\n")
         f.write(f"IPS@Potential: {ips_potential_increase:.4f}%\n")

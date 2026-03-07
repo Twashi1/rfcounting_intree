@@ -128,6 +128,11 @@ def _grab_metadata():
     return script, line
 
 
+def info(message):
+    script, line = _grab_metadata()
+    print(f"[INFO {script}:{line}] {message}")
+
+
 def warn(message):
     script, line = _grab_metadata()
     print(f"[WARN {script}:{line}] {message}")

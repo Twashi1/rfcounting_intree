@@ -66,12 +66,15 @@ def main():
     args = parser.parse_args()
 
     cfg = utils.load_cfg(args.config_file)
-    clock_frequency = float(cfg[utils.MCPAT_CFG_MODULE_NAME]["CLOCK_RATE"]) * 1.0e6
+    clock_frequency = (
+        float(cfg[utils.MCPAT_CFG_MODULE_NAME][utils.MCPAT_CLOCK_RATE_MHZ]) * 1.0e6
+    )
 
     block_additional = utils.load_block_additional(
         args.additional_block, args.module_index
     )
 
+    # TODO: standard way to load floorplan dataframe
     flp_df = pd.read_csv(
         args.floorplan, delim_whitespace=True, header=None, index_col=0, comment="#"
     )

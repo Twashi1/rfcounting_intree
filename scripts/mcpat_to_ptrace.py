@@ -402,7 +402,9 @@ def estimate_block_heat(
         parent: heat_data[parent] for parent in prevs if parent in heat_data
     }
 
-    print(f"Block id: {node=} has {len(parent_heats)} parents, or {prevs} dependencies")
+    utils.info(
+        f"Block id: {node=} has {len(parent_heats)} parents, or {prevs} dependencies"
+    )
 
     # Get the new heat
     new_heat = aggregate_heat_data(
@@ -427,15 +429,19 @@ def estimate_block_heat(
 
     execution_cycles = stat_block.iloc[0]["cycle_count"]
 
+    # Overrided in situations where we want to run at baseline
     desired_voltage = utils.tei_select_voltage(
         config, assumed_temperature, clock_rate_ghz, voltage_levels
     )
 
     if override_voltage is not None:
+        utils.info(
+            f"Overriding desired {desired_voltage} voltage for {override_voltage}"
+        )
         desired_voltage = override_voltage
 
     # Node is our block id, get execution time data for it, and the mcpat row data
-    print(f"Getting power trace for block_id {node} {desired_voltage=}")
+    utils.info(f"Getting power trace for block_id {node} {desired_voltage}V")
     # Grab/generate power trace for this block
     request_spec.change_to_other_config(node, desired_voltage)
     mcpat_ptrace = utils.request_power_for_specification(request_spec)
@@ -467,22 +473,20 @@ def calculate_all_heat(
     hotspot_config_file: str,
     voltage_levels: list,
     flp_df: pd.DataFrame,
+    disable_tei: bool,
 ):
     maximum_heat = float(
         config[utils.MCPAT_CFG_MODULE_NAME][utils.MCPAT_TEMP_SAFEGUARD_MAX]
     )
 
-    """
-    Instead of merging on block additional data
-    1. every function gets shipped with block additional
-        - no, instead each function gets shipped with the regular stats_df
-        - and we just read cycle_count from that
-    
-    - we assume we no longer have mcpat_df
-    - we do have stats_df as input to the function
-    - we also provide all required data to call the request function
-    -   bundle into a nice struct?
-    """
+    baseline_voltage = float(
+        config[utils.MCPAT_CFG_MODULE_NAME][utils.MCPAT_BASELINE_VOLTAGE]
+    )
+
+    override_voltage = None
+
+    if disable_tei:
+        override_voltage = baseline_voltage
 
     # Store all heat data for each node
     heat_data = dict()
@@ -508,9 +512,13 @@ def calculate_all_heat(
             flp_df,
             voltage_levels,
             hotspot_config_file,
+            override_voltage,  # Value will be None, if we choose to enable TEI
         )
 
-        if max(block_heat.values) >= maximum_heat:
+        # Disable safety guarding if we're not considering tei effects
+        # Only perofmr safety guarding when the maximum heat of any unit
+        #   is above our limit
+        if not disable_tei and max(block_heat.values()) >= maximum_heat:
             adjustment = min(voltage_levels)
             utils.warn(
                 "Block has gone above thermal safeguard, adjusting voltage to minimum"
@@ -531,7 +539,40 @@ def calculate_all_heat(
                 adjustment,
             )
 
+        heat_data[node] = block_heat
+
     return heat_data
+
+
+def output_heat_data(heat_file_csv: str, heat_data: dict):
+    utils.info(f"Writing heat data to: {heat_file_csv}")
+
+    with open(heat_file_csv, "w") as f:
+        f.write("block_id,")
+
+        for i, col in enumerate(HOTSPOT_FLOORPLAN):
+            if i > 0:
+                f.write(",")
+
+            f.write(col)
+
+        f.write("\n")
+
+        for block_id, heatmap in heat_data.items():
+            f.write(f"{block_id},")
+
+            for i, col in enumerate(HOTSPOT_FLOORPLAN):
+                if i > 0:
+                    f.write(",")
+
+                res = heatmap.get(col, None)
+
+                if res is None:
+                    f.write("na")
+                else:
+                    f.write(f"{res:.3f}")
+
+            f.write("\n")
 
 
 def main():
@@ -623,6 +664,12 @@ def main():
         default="./mcpat_inputs/Alpha21364.xml",
         help="The basis xml file we modify to create our McPAT inputs, expecting Alpha21364, can leave default",
     )
+    parser.add_argument(
+        "--baseline_calculation",
+        type=bool,
+        default="true",
+        help="Disable/enable performing our estimation of heat for the baseline voltage",
+    )
     args = parser.parse_args()
 
     file_prefix = args.file_prefix
@@ -692,45 +739,41 @@ def main():
     approx_sorted_nodes = ordered_nodes(topo, comp_to_nodes, global_adj)
 
     all_block_heats = calculate_all_heat(
-        stats_df,
+        stats_df.copy(),
         request_spec,
-        approx_sorted_nodes,
-        global_adj,
-        additional_block,
+        approx_sorted_nodes.copy(),
+        global_adj.copy(),
+        additional_block.copy(),
         cfg,
         args.aggregate,
         config_data,
         args.configs_hotspot,
-        standard_voltages,
-        flp_df,
+        standard_voltages.copy(),
+        flp_df.copy(),
+        False,
     )
 
-    with open("HeatData.csv", "w") as f:
-        f.write("block_id,")
+    output_heat_data("HeatData.csv", all_block_heats)
 
-        for i, col in enumerate(HOTSPOT_FLOORPLAN):
-            if i > 0:
-                f.write(",")
+    if bool(args.baseline_calculation):
+        utils.info("Running baseline calculation")
 
-            f.write(col)
+        baseline_heat_run = calculate_all_heat(
+            stats_df.copy(),
+            request_spec,
+            approx_sorted_nodes.copy(),
+            global_adj.copy(),
+            additional_block.copy(),
+            cfg,
+            args.aggregate,
+            config_data,
+            args.configs_hotspot,
+            standard_voltages.copy(),
+            flp_df.copy(),
+            True,
+        )
 
-        f.write("\n")
-
-        for block_id, heatmap in all_block_heats.items():
-            f.write(f"{block_id},")
-
-            for i, col in enumerate(HOTSPOT_FLOORPLAN):
-                if i > 0:
-                    f.write(",")
-
-                res = heatmap.get(col, None)
-
-                if res is None:
-                    f.write("na")
-                else:
-                    f.write(f"{res:.3f}")
-
-            f.write("\n")
+        output_heat_data("HeatDataBaseline.csv", baseline_heat_run)
 
 
 if __name__ == "__main__":
