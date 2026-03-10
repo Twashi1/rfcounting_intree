@@ -1,0 +1,95 @@
+
+# All stats are given as percentage increases
+# - EDP, lower is better
+# - Energy, lower is better
+# - IPS, higher is better
+# EDP@Constant, Energy@Constant - Measures difference between
+#   ETC:        Voltage: TEI-aware,  Frequency: Baseline, 3GHz
+#   Baseline:   Voltage: Baseline,   Frequency: Baseline, 3GHz
+# IPS@Conservative - Measures difference between
+#   ETC:        Frequency: Minimum between TEI-aware, and baseline 
+#   Baseline:   Frequency: Baseline, 3GHz 
+# IPS@Potential - Measures difference between
+#   ETC:        Frequency: TEI-aware (potential maximum)
+#   Baseline:   Frequency: Baseline, 3GHz
+#
+# - Intended comparison is EDP@Constant, and IPS@Conservative
+#   - Even if we potentially have overhead allowing us a higher frequency under the selected voltages, we intend to only apply DVS, and thus we cannot make use of enhanced frequencies
+#   - IPS@Conservative models, to some degree, where we might lose performance since we were not able to support the required frequency with the selected voltage
+#   - In almost all configurations, IPS@Conservative should give 0.0% performance loss, or close to 0.0% performance loss, since we round up voltages to ensure we can always support the target frequency
+# - IPS not compared between ETC running at baseline frequency, and Baseline running at baseline frequency
+Test name: gemm
+Energy@Constant: -0.3372%
+EDP@Constant: -0.3372%
+IPS@Conservative: 0.0000%
+IPS@Potential: 22.6127%
+Test name: symm
+Energy@Constant: -0.0727%
+EDP@Constant: -0.0727%
+IPS@Conservative: 0.0000%
+IPS@Potential: 21.6982%
+Test name: syrk
+Energy@Constant: -31.6341%
+EDP@Constant: -31.6341%
+IPS@Conservative: 0.0000%
+IPS@Potential: 27.0938%
+Test name: gemver
+Energy@Constant: -31.6565%
+EDP@Constant: -31.6565%
+IPS@Conservative: 0.0000%
+IPS@Potential: 14.7431%
+Test name: 2mm
+Energy@Constant: -0.1964%
+EDP@Constant: -0.1964%
+IPS@Conservative: 0.0000%
+IPS@Potential: 19.8452%
+Test name: 3mm
+Energy@Constant: -0.2579%
+EDP@Constant: -0.2579%
+IPS@Conservative: 0.0000%
+IPS@Potential: 22.7930%
+Test name: atax
+Energy@Constant: -31.6299%
+EDP@Constant: -31.6299%
+IPS@Conservative: 0.0000%
+IPS@Potential: 1.6447%
+Test name: durbin
+Energy@Constant: -31.5969%
+EDP@Constant: -31.5969%
+IPS@Conservative: 0.0000%
+IPS@Potential: 1.8051%
+Test name: lu
+Energy@Constant: -0.0687%
+EDP@Constant: -0.0687%
+IPS@Conservative: 0.0000%
+IPS@Potential: 19.9702%
+Test name: ludcmp
+Energy@Constant: -0.0806%
+EDP@Constant: -0.0806%
+IPS@Conservative: 0.0000%
+IPS@Potential: 22.0547%
+Test name: covariance
+Energy@Constant: -31.6788%
+EDP@Constant: -31.6788%
+IPS@Conservative: 0.0000%
+IPS@Potential: 1.3119%
+Test name: floyd-warshall
+Energy@Constant: -0.0943%
+EDP@Constant: -0.0943%
+IPS@Conservative: 0.0000%
+IPS@Potential: 19.2197%
+Test name: adi
+Energy@Constant: -0.0589%
+EDP@Constant: -0.0589%
+IPS@Conservative: 0.0000%
+IPS@Potential: 20.9957%
+Test name: jacobi-2d
+Energy@Constant: -31.6817%
+EDP@Constant: -31.6817%
+IPS@Conservative: 0.0000%
+IPS@Potential: -10.5873%
+Test name: seidel-2d
+Energy@Constant: -31.6990%
+EDP@Constant: -31.6990%
+IPS@Conservative: 0.0000%
+IPS@Potential: -8.9549%

@@ -1,4 +1,6 @@
 import argparse
+
+from numpy import minimum
 import utils
 import pandas as pd
 import os
@@ -210,11 +212,15 @@ def main():
         core_frequency_per_baseline_block[i] = baseline_frequency
 
     # Take per-block minimum of constant frequencies, and our tei frequencies
-    # NOTE: keys should be the same, but just for safety
-    minimum_frequency_per_block = {
-        k: min(core_frequency_per_block[k], core_frequency_constant[k])
-        for k in core_frequency_per_block.keys() & core_frequency_constant.keys()
-    }
+    minimum_frequency_per_block = {}
+
+    for i in range(num_blocks):
+        maximum_frequency = core_frequency_per_block.get(i, frequency)
+        minimum_frequency_per_block[i] = min(maximum_frequency, frequency)
+
+    utils.info(
+        f"Conservative frequency sum difference: {sum(minimum_frequency_per_block[k] - frequency for k in minimum_frequency_per_block.keys())}"
+    )
 
     # TODO:
     #   the comparisons to make are
@@ -246,6 +252,8 @@ def main():
     ips_potential_etc = calculate_ips(core_frequency_per_block, stats_df.copy())
     ips_conservative_etc = calculate_ips(minimum_frequency_per_block, stats_df.copy())
     ips_baseline = calculate_ips(core_frequency_constant, stats_df.copy())
+
+    utils.info(f"{ips_conservative_etc=} {ips_baseline=}")
 
     energy_constant_etc = calculate_energy(
         core_power_per_block, core_frequency_constant, stats_df.copy()

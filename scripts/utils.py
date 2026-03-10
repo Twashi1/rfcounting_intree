@@ -149,6 +149,88 @@ def fatal(message):
     raise RuntimeError(f"[FATAL {script}:{line}] {message}")
 
 
+def load_efficiency_stats(efficiency_stats: str) -> dict:
+    """
+    Return dictionary of program name, stats
+    "stats" in turn is a dictionary of stat name, stat value
+    """
+    results = {}
+    program_results = {}
+
+    program_name_pattern = re.compile(r"^\s*Test name:\s+(.+)$")
+    stat_value_pattern = re.compile(r"^(.*?):\s*([+-]?\d+(?:\.\d+)?)%$")
+
+    with open(efficiency_stats, "r") as f:
+        current_program = None
+
+        for line in f.readlines():
+            line = line.rstrip()
+
+            print(line)
+
+            if line.startswith("#"):
+                continue
+
+            m = program_name_pattern.search(line)
+            if m:
+                value = m.group(1)
+
+                info(f"Reading efficiency stats for program {value}")
+
+                if current_program is not None:
+                    results[current_program] = program_results
+                    program_results = {}
+
+                current_program = value
+                continue
+
+            m = stat_value_pattern.search(line)
+            if m:
+                label = m.group(1)
+                value = float(m.group(2))
+
+                program_results[label] = value
+
+        if current_program is not None:
+            results[current_program] = program_results
+            program_results = {}
+
+    # Brief rename for more friendly names
+    renames = {
+        "EDP@Constant": "edp_constant",
+        "Energy@Constant": "energy_constant",
+        "IPS@Conservative": "ips_conservative",
+        "IPS@Potential": "ips_potential",
+    }
+
+    renamed_results = {}
+
+    for program_name, program_data in results.items():
+        renamed_data = {}
+
+        for key, value in program_data.items():
+            new_key = renames[key]
+            renamed_data[new_key] = value
+
+        renamed_results[program_name] = renamed_data
+
+    return renamed_results
+
+
+def load_temperature_diff_stats(temp_diff: str) -> pd.DataFrame:
+    # Should be single-part csv so can just use pandas
+    df = pd.read_csv(temp_diff)
+    df["block_id"] = df["block_id"].astype(int)
+    float_columns = [
+        "temp_max_etc",
+        "temp_max_baseline",
+        "temp_diff",
+    ]
+    df[float_columns] = df[float_columns].astype(float)
+
+    return df
+
+
 class PowerTraceRequestSpec:
     def __init__(
         self,
@@ -586,6 +668,37 @@ def load_program_heats(heat_table: str) -> pd.DataFrame:
         "temp_max",
         "temp_area_weighted_mean",
         "execution_cycles",
+    ]
+    df[float_columns] = df[float_columns].astype(float)
+
+    return df
+
+
+def load_program_heats_voltages(hv_table: str) -> pd.DataFrame:
+    df = pd.read_csv(hv_table)
+    df["block_id"] = df["block_id"].astype(int)
+    float_columns = [
+        "temp_mean",
+        "temp_max",
+        "temp_area_weighted_mean",
+        "execution_cycles",
+        "execution_time",
+        "dvs_calling_count",
+        "required_voltage_value",
+        "obtained_frequency",
+    ]
+    df[float_columns] = df[float_columns].astype(float)
+
+    return df
+
+
+def load_program_temperature_change(temp_diff: str) -> pd.DataFrame:
+    df = pd.read_csv(temp_diff)
+    df["block_id"] = df["block_id"].astype(int)
+    float_columns = [
+        "temp_max_etc",
+        "temp_max_baseline",
+        "temp_diff",
     ]
     df[float_columns] = df[float_columns].astype(float)
 

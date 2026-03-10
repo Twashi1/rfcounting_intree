@@ -6,9 +6,9 @@ test_name=$(basename "$1" .c)
 # sudo sh ./buildscript.sh
 sudo bash ./buildpoly_specific.sh "${polybench_path}"
 
-# Create standard stat file
-rm -f ./stats/${test_name}_mbb_STD.csv ./stats/${test_name}_path_STD.csv
+rm -f ./stats/${test_name}_mbb_STD.csv ./stats/${test_name}_path_STD.csv "./block_heats/${test_name}_*"
 
+# Create standard stat file
 python3 ./scripts/create_stats.py --input_file=MBB_stats.csv --output=./stats/${test_name}_mbb --module_index=2 --take_sum=0
 
 # TODO: note this shouldn't be used in any meaningful way, should remove soon
@@ -40,3 +40,6 @@ sudo python3 ./scripts/calc_energy_efficiency.py --stats="./stats/${test_name}_m
 
 # Calculate temperature difference
 sudo python3 ./scripts/temp_difference.py --etc_heat="./block_heats/${test_name}_ProgramHeat.csv" --baseline_heat="./block_heats/${test_name}_Baseline_ProgramHeat.csv" --out_prefix="./block_heats/${test_name}"
+
+# Plot whole-program stats and create unified data
+# sudo python3 ./scripts/plot_stats.py
