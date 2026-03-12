@@ -46,6 +46,15 @@ def main():
 
     output.to_csv(f"{args.out_prefix}_ProgramTemperatureChange.csv", index=False)
 
+    maximum_temperature = df["temp_max_etc"].max()
+
+    # TODO: take additional parameter instead of out_prefix that is specifically program name
+
+    with open("maxTemperature.txt", "a") as f:
+        f.write(
+            f"Test {args.out_prefix}: Max temperature {maximum_temperature} degrees\n"
+        )
+
 
 if __name__ == "__main__":
     main()

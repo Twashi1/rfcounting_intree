@@ -107,6 +107,7 @@ def get_hotspot_temp(
     hotspot_config_file: str,
     initial_heat: dict | None,
     heatsink_offset: float,
+    desired_frequency: float,
     name_id: str,
 ) -> dict:
     # TODO: construct input from hotspot_ptrace (dataframe series, or turn to dict?)
@@ -360,10 +361,6 @@ def read_heatmap_output(file_path: str) -> dict:
     # All columns numerical, so should work
     df = df.astype(float)
 
-    # TODO: this is expected whenever we have >1 sample, not worth the error
-    if len(df) > 1:
-        utils.warn("DF had more than one row, we just take the first")
-
     return df.iloc[-1].to_dict()
 
 
@@ -381,7 +378,7 @@ def estimate_block_heat(
     voltage_levels: list,
     hotspot_config_file: str,
     override_voltage: float | None = None,
-) -> dict:
+) -> tuple[float, float, dict]:
     use_residuals = bool(
         config[utils.HOTSPOT_MODULE_NAME][utils.HOTSPOT_INCLUDE_RESIDUALS]
     )
@@ -433,32 +430,38 @@ def estimate_block_heat(
     desired_voltage = utils.tei_select_voltage(
         config, assumed_temperature, clock_rate_ghz, voltage_levels
     )
+    desired_frequency = utils.tei_select_frequency(
+        config, assumed_temperature, desired_voltage
+    )
 
     if override_voltage is not None:
         utils.info(
             f"Overriding desired {desired_voltage} voltage for {override_voltage}"
         )
         desired_voltage = override_voltage
+        # We overwrite the desired frequency to baseline if told to override
+        desired_frequency = clock_rate_ghz
 
     # Node is our block id, get execution time data for it, and the mcpat row data
     utils.info(f"Getting power trace for block_id {node} {desired_voltage}V")
     # Grab/generate power trace for this block
-    request_spec.change_to_other_config(node, desired_voltage)
+    request_spec.change_to_other_config(node, desired_voltage, desired_frequency)
     mcpat_ptrace = utils.request_power_for_specification(request_spec)
     hotspot_ptrace = utils.mcpat_to_hotspot_units(mcpat_ptrace, flp_df, use_residuals)
     # mcpat_ptrace = merged.loc[merged["block_id"] == node].iloc[0]
 
     final_heat = get_hotspot_temp(
         hotspot_ptrace,
-        float(execution_cycles) / float(clock_rate_hz),
+        float(execution_cycles) / float(desired_frequency * 1.0e9),
         config,
         hotspot_config_file,
         new_heat,
         heatsink_offset,
-        f"{node:04d}",
+        desired_frequency,
+        f"{node:04d}_{desired_frequency:.1f}Hz",
     )
 
-    return final_heat
+    return desired_voltage, desired_frequency, final_heat
 
 
 def calculate_all_heat(
@@ -490,6 +493,8 @@ def calculate_all_heat(
 
     # Store all heat data for each node
     heat_data = dict()
+    # Store all voltage/frequency pairs for each node
+    vf_pairs = dict()
 
     # Create backwards mapping from node to parents
     parents = defaultdict(list)
@@ -499,7 +504,7 @@ def calculate_all_heat(
             parents[end].append(start)
 
     for node in approx_sorted_nodes:
-        block_heat = estimate_block_heat(
+        v, f, block_heat = estimate_block_heat(
             parents,
             node,
             additional_block,
@@ -523,7 +528,7 @@ def calculate_all_heat(
             utils.warn(
                 "Block has gone above thermal safeguard, adjusting voltage to minimum"
             )
-            block_heat = estimate_block_heat(
+            v, f, block_heat = estimate_block_heat(
                 parents,
                 node,
                 additional_block,
@@ -540,8 +545,19 @@ def calculate_all_heat(
             )
 
         heat_data[node] = block_heat
+        vf_pairs[node] = {"frequency": f, "voltage": v}
 
-    return heat_data
+    return heat_data, vf_pairs
+
+
+def output_vf_data(vf_file_csv: str, vf_pairs: dict):
+    utils.info(f"Writing VF data to: {vf_file_csv}")
+
+    df = pd.DataFrame.from_dict(vf_pairs, orient="index")
+    df.index.name = "block_id"
+    df["block_id"] = df.index
+
+    df.to_csv(vf_file_csv, index=False)
 
 
 def output_heat_data(heat_file_csv: str, heat_data: dict):
@@ -586,12 +602,6 @@ def main():
         type=float,
         default=273.15 + 77.0,
         help="Initial temperatures in kelvin when we cannot find previous block",
-    )
-    parser.add_argument(
-        "--voltage_levels_file",
-        type=str,
-        default="VoltageLevels.csv",
-        help="Voltage level to use per basic block",
     )
     parser.add_argument(
         "--configs",
@@ -642,10 +652,10 @@ def main():
         help="Path to topologically sorted components file",
     )
     parser.add_argument(
-        "--voltage_levels",
+        "--vf_levels",
         type=str,
-        default="VoltageLevels.csv",
-        help="Path to voltage levels file",
+        default="VoltageFrequency.csv",
+        help="File to output selected voltage/frequency levels for each block",
     )
     parser.add_argument(
         "--floorplan",
@@ -669,6 +679,12 @@ def main():
         type=bool,
         default="true",
         help="Disable/enable performing our estimation of heat for the baseline voltage",
+    )
+    parser.add_argument(
+        "--variable_frequency",
+        type=bool,
+        default="true",
+        help="Allow taking the maximum TEI-aware frequency",
     )
     args = parser.parse_args()
 
@@ -715,6 +731,7 @@ def main():
         file_prefix,
         stats_df,
         args.basis_xml,
+        0.0,
         config_data,
     )
 
@@ -738,7 +755,7 @@ def main():
     # Roughly topologically sorted nodes
     approx_sorted_nodes = ordered_nodes(topo, comp_to_nodes, global_adj)
 
-    all_block_heats = calculate_all_heat(
+    all_block_heats, vf_pairs = calculate_all_heat(
         stats_df.copy(),
         request_spec,
         approx_sorted_nodes.copy(),
@@ -753,12 +770,15 @@ def main():
         False,
     )
 
+    # TOOD: use arguments instead
+
     output_heat_data("HeatData.csv", all_block_heats)
+    output_vf_data("VoltageFrequency.csv", vf_pairs)
 
     if bool(args.baseline_calculation):
         utils.info("Running baseline calculation")
 
-        baseline_heat_run = calculate_all_heat(
+        baseline_heat_run, vf_baseline_pairs = calculate_all_heat(
             stats_df.copy(),
             request_spec,
             approx_sorted_nodes.copy(),
@@ -774,6 +794,7 @@ def main():
         )
 
         output_heat_data("HeatDataBaseline.csv", baseline_heat_run)
+        output_vf_data("VoltageFrequencyBaseline.csv", vf_baseline_pairs)
 
 
 if __name__ == "__main__":

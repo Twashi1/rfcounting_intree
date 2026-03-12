@@ -15,7 +15,8 @@ python3 ./scripts/create_stats.py --input_file=MBB_stats.csv --output=./stats/${
 sudo python3 ./scripts/initial_voltages.py --voltage_level=5 --module_index=2
 # Delete old McPAT inputs
 sudo rm -rf "./mcpat_inputs/${test_name}"
-sudo python3 ./scripts/create_mcpat_per_block.py --stats="./stats/${test_name}_mbb_STD.csv" --output_xml="${test_name}" --output_dir="./mcpat_inputs/${test_name}"
+# TODO: remove this line if we don't need to create McPAT inputs anymore (they should be made for us)
+#sudo python3 ./scripts/create_mcpat_per_block.py --stats="./stats/${test_name}_mbb_STD.csv" --output_xml="${test_name}" --output_dir="./mcpat_inputs/${test_name}"
 
 # Delete old McPAT outputs
 sudo rm -rf "./mcpat_out/${test_name}"
@@ -30,13 +31,13 @@ sudo python3 ./scripts/per_program_table.py --name="./block_heats/${test_name}" 
 sudo python3 ./scripts/per_program_table.py --heatdata="HeatDataBaseline.csv" --name="./block_heats/${test_name}_Baseline" --stats="./stats/${test_name}_mbb_STD.csv"
 
 # Add required voltages
-sudo python3 ./scripts/tei_effects.py --program_heat="./block_heats/${test_name}_ProgramHeat.csv" --out_prefix="./block_heats/${test_name}"
+#sudo python3 ./scripts/tei_effects.py --program_heat="./block_heats/${test_name}_ProgramHeat.csv" --out_prefix="./block_heats/${test_name}"
 
 # Write voltages to VoltageLevels.csv
-sudo python3 ./scripts/read_voltages.py --tei_voltages="./block_heats/${test_name}_ProgramHeatVoltages.csv" --out_voltages="./block_heats/${test_name}_OutVoltages.csv"
+#sudo python3 ./scripts/read_voltages.py --tei_voltages="./block_heats/${test_name}_ProgramHeatVoltages.csv" --out_voltages="./block_heats/${test_name}_OutVoltages.csv"
 
 # Calculate EDP
-sudo python3 ./scripts/calc_energy_efficiency.py --stats="./stats/${test_name}_mbb_STD.csv" --mcpat_ins="./mcpat_inputs/${test_name}" --mcpat_outs="./mcpat_out/${test_name}" --new_voltage_levels="./block_heats/${test_name}_OutVoltages.csv" --file_prefix="${test_name}"
+sudo python3 ./scripts/calc_energy_efficiency.py --stats="./stats/${test_name}_mbb_STD.csv" --mcpat_ins="./mcpat_inputs/${test_name}" --mcpat_outs="./mcpat_out/${test_name}" --tei_vf_levels="VoltageFrequency.csv" --file_prefix="${test_name}" --heat_data="./block_heats/${test_name}_ProgramHeat.csv" --baseline_heat="./block_heats/${test_name}_Baseline_ProgramHeat.csv"
 
 # Calculate temperature difference
 sudo python3 ./scripts/temp_difference.py --etc_heat="./block_heats/${test_name}_ProgramHeat.csv" --baseline_heat="./block_heats/${test_name}_Baseline_ProgramHeat.csv" --out_prefix="./block_heats/${test_name}"

@@ -22,6 +22,8 @@ vars=(
 "./PolyBenchC-4.2.1/stencils/seidel-2d/seidel-2d.c"
 )
 
+# TODO: remove max temperature file
+
 rm -f efficiencyStats.txt
 
 for f in "${vars[@]}"; do

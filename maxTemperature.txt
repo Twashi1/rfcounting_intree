@@ -1,0 +1,17 @@
+Test ./block_heats/gemm: Max temperature 83.34000000000003 degreesTest ./block_heats/gemm: Max temperature 83.40000000000003 degreesTest ./block_heats/gemm: Max temperature 83.40000000000003 degreesTest ./block_heats/symm: Max temperature 79.46000000000004 degrees
+Test ./block_heats/gemm: Max temperature 79.46000000000004 degrees
+Test ./block_heats/gemm: Max temperature 83.40000000000003 degrees
+Test ./block_heats/symm: Max temperature 79.46000000000004 degrees
+Test ./block_heats/syrk: Max temperature 81.48000000000002 degrees
+Test ./block_heats/gemver: Max temperature 79.46000000000004 degrees
+Test ./block_heats/2mm: Max temperature 84.80000000000001 degrees
+Test ./block_heats/3mm: Max temperature 84.70000000000005 degrees
+Test ./block_heats/atax: Max temperature 81.5 degrees
+Test ./block_heats/durbin: Max temperature 79.40000000000003 degrees
+Test ./block_heats/lu: Max temperature 83.59000000000003 degrees
+Test ./block_heats/ludcmp: Max temperature 88.13 degrees
+Test ./block_heats/covariance: Max temperature 79.13 degrees
+Test ./block_heats/floyd-warshall: Max temperature 81.60000000000002 degrees
+Test ./block_heats/adi: Max temperature 80.23000000000002 degrees
+Test ./block_heats/jacobi-2d: Max temperature 79.47000000000003 degrees
+Test ./block_heats/seidel-2d: Max temperature 79.43 degrees

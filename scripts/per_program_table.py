@@ -61,6 +61,12 @@ def main():
         help="The module to get for block additional data",
     )
     parser.add_argument(
+        "--vf_pairs",
+        type=str,
+        default="VoltageFrequency.csv",
+        help="File to get voltage frequency pairs per block",
+    )
+    parser.add_argument(
         "--name", type=str, help="Name of the program/prefix to output under"
     )
     args = parser.parse_args()
@@ -73,6 +79,8 @@ def main():
     block_additional = utils.load_block_additional(
         args.additional_block, args.module_index
     )
+
+    vf_pairs = utils.load_voltage_frequency(args.vf_pairs)
 
     # TODO: standard way to load floorplan dataframe
     flp_df = pd.read_csv(
@@ -88,6 +96,7 @@ def main():
     flp_df["bottomy"] = flp_df["bottomy"].astype(float)
     flp_df["area"] = flp_df["width"] * flp_df["height"]
 
+    # TODO: do this when loading stat file
     stats_df = utils.load_standard_stat_file(args.stats)
 
     df = pd.read_csv(args.heatdata, na_values=["nan", "NaN", ""])
@@ -107,11 +116,12 @@ def main():
     df["temp_area_weighted_mean"] = df["temp_area_weighted_mean"].round(2)
     df["temp_mean"] = df["temp_mean"].round(2)
 
+    df = df.merge(vf_pairs, on="block_id", how="inner")
+    # TODO: rename freq column for confusion
     df = df.merge(
-        block_additional[["block_id", "execution_cycles"]], on="block_id", how="inner"
+        stats_df[["block_id", "freq", "cycle_count"]], on="block_id", how="inner"
     )
-    df = df.merge(stats_df[["block_id", "freq"]], on="block_id", how="inner")
-    df["execution_time"] = df["execution_cycles"] / float(clock_frequency)
+    df["execution_time"] = df["cycle_count"].astype(float) / (df["frequency"] * 1.0e9)
 
     # TODO: horribly inaccurate, two reasons
     # 1. for path-clubbed, we should just take the frequency of the starting block
@@ -126,9 +136,11 @@ def main():
             "temp_mean",
             "temp_max",
             "temp_area_weighted_mean",
-            "execution_cycles",
+            "cycle_count",
             "execution_time",
             "dvs_calling_count",
+            "voltage",
+            "frequency",
         ]
     ]
 

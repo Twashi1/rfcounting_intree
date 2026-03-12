@@ -11,6 +11,8 @@ import configparser
 from collections import defaultdict
 from pathlib import Path
 
+from pandas.core.tools.datetimes import precision_from_unit
+
 MCPAT_CFG_MODULE_NAME = "mcpat"
 MCPAT_CLOCK_RATE_MHZ = "CLOCK_RATE"
 MCPAT_TEMP = "TEMP"
@@ -22,10 +24,20 @@ MCPAT_TEMP_OPTIM = "TEMP_OPTIM"
 MCPAT_TEMP_SAFEGUARD_MAX = "TEMP_SAFEGUARD_MAX"
 MCPAT_ATTEMPT_TEMP_OPTIM = "ATTEMPT_TEMPERATURE_OPTIM"
 MCPAT_ROUND_UP = "ROUND_VOLTAGE_UP"
+MCPAT_FREQUENCY_PRECISION = "FREQUENCY_PRECISION"
 
 HOTSPOT_MODULE_NAME = "hotspot"
 HOTSPOT_INCLUDE_RESIDUALS = "INCLUDE_RESIDUALS"
 HOTSPOT_HEATSINK_OFFSET = "HEATSINK_OFFSET"
+
+# TODO: implement rest of these functions and use them
+# def config_clock_rate_mhz(config: configparser.ConfigParser) -> float:
+#     return float(config[MCPAT_CFG_MODULE_NAME][MCPAT_CLOCK_RATE_MHZ])
+#
+#
+# def config_temp(config: configparser.ConfigParser) -> float:
+#     return float(config[MCPAT_CFG_MODULE_NAME][MCPAT_TEMP])
+
 
 # NOTE: should be an enum but it'd be difficult to use as keys
 MODULE_NAME = "module_name"
@@ -146,7 +158,7 @@ def error(message):
 def fatal(message):
     script, line = _grab_metadata()
     print(f"[FATAL {script}:{line}] {message}")
-    raise RuntimeError(f"[FATAL {script}:{line}] {message}")
+    RuntimeError(f"[FATAL {script}:{line}] {message}")
 
 
 def load_efficiency_stats(efficiency_stats: str) -> dict:
@@ -242,6 +254,7 @@ class PowerTraceRequestSpec:
         program_name: str,
         stats_df: pd.DataFrame,
         input_xml: str | None,
+        frequency: float,
         config,
     ):
         self.block_id = block_id
@@ -252,12 +265,16 @@ class PowerTraceRequestSpec:
         self.program_name = program_name
         self.stats_df = stats_df
         self.input_xml = input_xml
+        self.frequency = frequency
         self.config = config
 
     # TODO: existence of this function breaks our procedural paradigm, but its convenient
-    def change_to_other_config(self, block_id: int, voltage_level: float) -> None:
+    def change_to_other_config(
+        self, block_id: int, voltage_level: float, frequency: float
+    ) -> None:
         self.block_id = block_id
         self.voltage_level = voltage_level
+        self.frequency = frequency
 
 
 # TODO: "name" is actually name prefix
@@ -328,7 +345,7 @@ def load_folder_mcpat(folder_path: str, file_prefix: str = "") -> pd.DataFrame:
         file_prefix = last_directory_name
 
     if file_prefix == "":
-        raise ValueError(f"Bad folder path? File prefix was empty. {folder_path=}")
+        fatal(f"Bad folder path? File prefix was empty. {folder_path=}")
 
     pattern = re.compile(rf"{re.escape(file_prefix)}_idx(\d{{4}})_v(\d+)\.txt$")
 
@@ -348,7 +365,7 @@ def load_folder_mcpat(folder_path: str, file_prefix: str = "") -> pd.DataFrame:
         match = pattern.match(f)
 
         if not match:
-            raise ValueError(f"Unrecognised file name format: {f}, in path {file_path}")
+            fatal(f"Unrecognised file name format: {f}, in path {file_path}")
 
         path_number = int(match.group(1))
         voltage_level = int(match.group(2))
@@ -411,6 +428,19 @@ def tei_get_frequency(temperature_celsius: float, voltage: float):
     )
 
 
+def tei_select_frequency(
+    config: configparser.ConfigParser, temperature_celsius: float, voltage: float
+) -> float:
+    frequency = tei_get_frequency(temperature_celsius, voltage)
+
+    precision = float(config[MCPAT_CFG_MODULE_NAME][MCPAT_FREQUENCY_PRECISION])
+
+    if math.isnan(frequency):
+        return float("nan")
+
+    return round(frequency / precision) * precision
+
+
 def tei_select_voltage(
     config,
     temperature_celsius: float,
@@ -431,7 +461,7 @@ def tei_select_voltage(
         config[MCPAT_CFG_MODULE_NAME][MCPAT_VOLTAGE_UPWARDS_ADJUSTMENT]
     )
 
-    print(
+    info(
         f"Grabbing voltage for temp {temperature_celsius}, at freq {target_frequency_ghz}, for levels: {voltage_levels}"
     )
 
@@ -460,24 +490,25 @@ def tei_select_voltage(
                 return v
 
     # We failed on either path, meaning required voltage was too high, or too low
-    if round_up:
-        # Required voltage was too high
-        # Return highest voltage we have
-        return voltage_levels[-1]
-
+    # If rounding up, return highest voltage we have
     # Required voltage was too low, return smallest voltage
-    return voltage_levels[0]
+    final_voltage = voltage_levels[-1] if round_up else voltage_levels[0]
+
+    return final_voltage
 
 
 def generate_mcpat_power_name(
-    program_name: str, block_id: int, voltage_index: int
+    program_name: str, block_id: int, voltage_index: int, frequency: float
 ) -> str:
-    return f"{program_name}_idx{block_id:04d}_v{voltage_index}"
+    return f"{program_name}_idx{block_id:04d}_v{voltage_index}_{frequency:.1f}Hz"
 
 
 def get_voltage_index(voltage_levels: list, voltage_level: float) -> int:
     # Usually we expect voltage_level to be at one of the existing voltage levels
     # however in the case its off by a small epsilon value, this will ensure
+    if len(voltage_levels) == 0:
+        utils.fatal("Did not get any voltage levels when requesting index")
+
     max_index, _ = min(
         enumerate(voltage_levels),
         key=lambda p: abs(voltage_levels[p[0]] - voltage_level),
@@ -498,13 +529,14 @@ def request_power_for_specification(
         request_spec.program_name,
         request_spec.stats_df,
         request_spec.input_xml,
+        request_spec.frequency,
         request_spec.config,
         expect_exists,
     )
 
     if power is None:
-        raise RuntimeError(
-            f"Program {request_spec.program_name} was missing power for {request_spec.block_id} at {request_spec.voltage_level}V"
+        fatal(
+            f"Program {request_spec.program_name} was missing power for {request_spec.block_id} at {request_spec.voltage_level}V for frequency {request_spec.frequency}"
         )
 
     return power
@@ -519,7 +551,8 @@ def _request_power_trace_for_voltage(
     program_name: str,
     stats_df: pd.DataFrame,
     input_xml: str | None,
-    config,
+    frequency: float,
+    config: configparser.ConfigParser,
     expect_exists: bool,
 ):
     # TODO: relatively trivial to take temperature at this point too
@@ -533,9 +566,12 @@ def _request_power_trace_for_voltage(
     """
 
     file_name = generate_mcpat_power_name(
-        program_name, block_id, get_voltage_index(voltage_levels, voltage_level)
+        program_name,
+        block_id,
+        get_voltage_index(voltage_levels, voltage_level),
+        frequency,
     )
-    print(f"Looking for file name: {file_name}")
+    info(f"Looking for file name: {file_name}")
 
     output_power_trace = f"./{mcpat_output_folder}/{file_name}.txt"
     input_stats_xml = f"./{mcpat_input_folder}/{file_name}.xml"
@@ -550,13 +586,14 @@ def _request_power_trace_for_voltage(
             or input_xml is None
             or mcpat_input_folder is None
         ):
-            print(
+            # TODO: just add __repr__ and __str__ to RequestSpec
+            info(
                 f"<RequestSpec: {block_id=} {voltage_level=} {voltage_levels=} {program_name=} {expect_exists=}>"
             )
             return None
 
-        print(
-            f"Generating mcpat file {output_power_trace}, {block_id=} {voltage_level=}"
+        info(
+            f"Generating mcpat file {output_power_trace}, {block_id=} {voltage_level=}, {frequency=}"
         )
 
         # TODO: believe originates here, sometimes stats_df is very wrong
@@ -567,6 +604,7 @@ def _request_power_trace_for_voltage(
             (stats_df.loc[stats_df["block_id"] == block_id].iloc[0]).to_dict(),
             config,
             get_voltage_index(voltage_levels, voltage_level),
+            frequency,
         )
 
         subprocess.run(
@@ -585,10 +623,10 @@ def get_distributed_voltage_levels(voltage_levels: list, num_values: int) -> lis
     Returns the list of indices into voltage levels
     """
     if num_values == 0:
-        raise ValueError("Expected to select at least 1 voltage level")
+        fatal("Expected to select at least 1 voltage level")
 
     if num_values > len(voltage_levels):
-        raise ValueError("Got too many voltage levels to select")
+        fatal("Got too many voltage levels to select")
 
     total = len(voltage_levels)
 
@@ -646,7 +684,7 @@ def load_voltage_levels_from_cfg(cfg) -> list:
         value = float(mcpat_data[voltage_key])
 
         if value < prev_voltage:
-            raise ValueError("Voltage levels must be non-decreasing!")
+            fatal("Voltage levels must be non-decreasing!")
 
         if value == prev_voltage:
             warn(
@@ -667,8 +705,20 @@ def load_program_heats(heat_table: str) -> pd.DataFrame:
         "temp_mean",
         "temp_max",
         "temp_area_weighted_mean",
-        "execution_cycles",
+        "cycle_count",
     ]
+    df[float_columns] = df[float_columns].astype(float)
+
+    return df
+
+
+## TODO: load floorplan
+
+
+def load_voltage_frequency(vf_pairs: str) -> pd.DataFrame:
+    df = pd.read_csv(vf_pairs)
+    df["block_id"] = df["block_id"].astype(int)
+    float_columns = ["voltage", "frequency"]
     df[float_columns] = df[float_columns].astype(float)
 
     return df
@@ -755,7 +805,7 @@ def load_voltage_levels(path: str) -> pd.DataFrame:
     csv_parts = load_multipart_csv(path)
 
     if len(csv_parts) == 0:
-        raise ValueError("Voltage levels were not initialised")
+        fatal("Voltage levels were not initialised")
 
     df = pd.DataFrame(csv_parts[0])
     df["block_id"] = df["block_id"].astype(int)
@@ -990,7 +1040,7 @@ def mcpat_to_hotspot_units(
 def set_voltages(voltage_file: str, voltages: list, block_ids: list):
     # TODO: validation on voltage levels
     if len(voltages) != len(block_ids):
-        raise ValueError("Expected list of voltages and block ids to be same length")
+        fatal("Expected list of voltages and block ids to be same length")
 
     voltage_df = pd.DataFrame()
     voltage_df["voltage_level"] = voltages
@@ -1019,13 +1069,11 @@ def change_xml_property(
     element = tree.find(xpath)
 
     if element is None:
-        print(f"Element {component_path}/{name} was not found, adding")
+        warn(f"Element {component_path}/{name} was not found, adding")
         parent = tree.find(parent_path)
 
         if parent is None:
-            raise NotImplementedError(
-                "TODO: we should create the tree of parents before the element.."
-            )
+            fatal("TODO: we should create the tree of parents before the element..")
 
         element = ET.SubElement(
             parent, param_or_stat, attrib={"name": name, "value": new_value}
@@ -1069,7 +1117,7 @@ def get_stats_df_mbbs(csv_path: str, module_index: int) -> pd.DataFrame:
     )
 
     if not set(cols).issubset(df.columns):
-        raise ValueError(
+        fatal(
             f"Input {csv_path} to mbb load of module {module_index} was missing required columns"
         )
 
@@ -1115,8 +1163,7 @@ def get_stats_df_subgraphs(csv_path: str, module_index: int) -> [pd.DataFrame]:
     )
 
     if not set(cols).issubset(df.columns):
-        print(df.columns, cols)
-        raise ValueError(
+        fatal(
             f"Input {csv_path} to path load of module {module_index} was missing required columns"
         )
 
@@ -1149,7 +1196,7 @@ def get_stats_df_subgraphs(csv_path: str, module_index: int) -> [pd.DataFrame]:
 
 
 def get_stats_df_calling_points():
-    raise NotImplementedError()
+    fatal()
 
 
 def get_stats_df_gem5_run(input_path: str) -> pd.DataFrame:
@@ -1310,10 +1357,19 @@ def modify_xml(
     input_path: str,
     output_path: str,
     input_stats: dict,
-    input_cfg,
+    input_cfg: configparser.ConfigParser,
     voltage_level_id: int,
+    frequency: float,
 ) -> None:
     tree = ET.parse(input_path)
+
+    # Convert to MHz
+    frequency *= 1.0e3
+
+    if frequency < 1000 or frequency > 5000:
+        utils.fatal(f"Frequency was outside expected range, was: {frequency}MHz")
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     voltage_levels = load_voltage_levels_from_cfg(input_cfg)
     vdd = f"{voltage_levels[voltage_level_id]:.2f}"
@@ -1331,7 +1387,7 @@ def modify_xml(
         "system",
         "param",
         "target_core_clockrate",
-        str(mcpat_config[MCPAT_CLOCK_RATE_MHZ]),
+        str(frequency),
     )
     change_xml_property(tree, "system/system.core0", "param", "vdd", vdd)
 
@@ -1346,7 +1402,7 @@ def modify_xml(
         "system/system.core0",
         "param",
         "clock_rate",
-        str(mcpat_config[MCPAT_CLOCK_RATE_MHZ]),
+        str(frequency),
     )
     change_xml_property(
         tree,
@@ -1681,7 +1737,7 @@ def modify_xml(
         "system/system.L1Directory0",
         "param",
         "clockrate",
-        str(mcpat_config[MCPAT_CLOCK_RATE_MHZ]),
+        str(frequency),
     )
     change_xml_property(
         tree,
@@ -1707,7 +1763,7 @@ def modify_xml(
         "system/system.L2Directory0",
         "param",
         "clockrate",
-        str(mcpat_config[MCPAT_CLOCK_RATE_MHZ]),
+        str(frequency),
     )
     change_xml_property(
         tree, "system/system.L2Directory0", "stat", "read_accesses", str(0)
@@ -1727,7 +1783,7 @@ def modify_xml(
         "system/system.L20",
         "param",
         "clockrate",
-        str(mcpat_config[MCPAT_CLOCK_RATE_MHZ]),
+        str(frequency),
     )
     change_xml_property(tree, "system/system.L20", "stat", "read_accesses", str(0))
     change_xml_property(tree, "system/system.L20", "stat", "write_accesses", str(0))
@@ -1751,7 +1807,7 @@ def modify_xml(
         "system/system.NoC0",
         "param",
         "clockrate",
-        str(mcpat_config[MCPAT_CLOCK_RATE_MHZ]),
+        str(frequency),
     )
 
     change_xml_property(
@@ -1786,7 +1842,6 @@ def load_arbitrary_stat_file(
     path: str, module_index: int = 0, path_index: int = -1, take_sum: bool = False
 ) -> pd.DataFrame:
     filename = os.path.basename(path)
-    _, ext = os.path.splitext(filename)
 
     stats = None
 
@@ -1794,7 +1849,7 @@ def load_arbitrary_stat_file(
         all_stats = get_stats_df_subgraphs(path, module_index)
 
         if path_index == -1 and take_sum:
-            raise NotImplementedError(
+            fatal(
                 "Cannot sum over subgraphs, use MBB stats or select a specific subgraph"
             )
 
@@ -1829,10 +1884,10 @@ def load_arbitrary_stat_file(
         # TODO: warn on this path? or just check this path is valid
         stats = load_standard_stat_file(path)
     else:
-        raise ValueError(f"Unknown stat file {filename}")
+        fatal(f"Unknown stat file {filename}")
 
     if stats is None:
-        raise RuntimeError("Failed to load stat file")
+        fatal("Failed to load stat file")
 
     return stats
 
