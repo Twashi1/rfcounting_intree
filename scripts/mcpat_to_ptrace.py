@@ -172,10 +172,13 @@ def get_hotspot_temp(
     pattern = re.compile(r"^\s*-sampling_intvl\s+[\d\.eE+-]+", re.MULTILINE)
 
     per_sample_execution_time = execution_time / sample_count
-    per_sample_epsilon = 0.00001
+    per_sample_epsilon = 0.0000001
 
     if not (per_sample_execution_time > per_sample_epsilon):
         # Just some epsilon value
+        utils.error(
+            f"Received too low execution time, setting sample to {per_sample_epsilon} from {per_sample_execution_time}"
+        )
         per_sample_execution_time = per_sample_epsilon
 
     # TODO: check whitespaces are correct
@@ -183,7 +186,7 @@ def get_hotspot_temp(
     for i, line in enumerate(lines):
         if pattern.match(line):
             # TODO:
-            lines[i] = f"\t\t-sampling_intvl\t\t{per_sample_execution_time:.6f}\n"
+            lines[i] = f"\t\t-sampling_intvl\t\t{per_sample_execution_time}\n"
             break
 
     with open(hotspot_config_file, "w") as f:
@@ -496,14 +499,27 @@ def calculate_all_heat(
     # Store all voltage/frequency pairs for each node
     vf_pairs = dict()
 
+    # We exclude evaluating any nodes that aren't part of the (path-based CFG)
+    # this is specific for when we evaluate path-based CFG, we need to exclude
+    # nodes that are within a path, but not the root; since we summed stats over the
+    # path itself
+    nodes_to_consider = set()
+
     # Create backwards mapping from node to parents
     parents = defaultdict(list)
 
     for start in global_adj.keys():
+        # Also adding the nodes to consider here
+        nodes_to_consider.add(start)
+
         for end in global_adj[start]:
             parents[end].append(start)
+            nodes_to_consider.add(end)
 
     for node in approx_sorted_nodes:
+        if node not in nodes_to_consider:
+            continue
+
         v, f, block_heat = estimate_block_heat(
             parents,
             node,

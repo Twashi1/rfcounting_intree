@@ -45,9 +45,9 @@ def create_unified_program_stats(efficiency_stats: dict) -> pd.DataFrame:
 
     for program_name, program_data in efficiency_stats.items():
         df_dict["program_name"].append(program_name)
-        df_dict["edp_percent"].append(-program_data["edp_constant"])
-        df_dict["energy_percent"].append(program_data["energy_constant"])
-        df_dict["ips_percent"].append(program_data["ips_conservative"])
+        df_dict["edp_percent"].append(-program_data["edp_potential"])
+        df_dict["energy_percent"].append(-program_data["energy_potential"])
+        df_dict["ips_percent"].append(program_data["ips_potential"])
 
     df = pd.DataFrame(df_dict)
 

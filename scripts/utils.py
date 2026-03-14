@@ -25,6 +25,7 @@ MCPAT_TEMP_SAFEGUARD_MAX = "TEMP_SAFEGUARD_MAX"
 MCPAT_ATTEMPT_TEMP_OPTIM = "ATTEMPT_TEMPERATURE_OPTIM"
 MCPAT_ROUND_UP = "ROUND_VOLTAGE_UP"
 MCPAT_FREQUENCY_PRECISION = "FREQUENCY_PRECISION"
+MCPAT_FREQUENCY_LIMIT = "FREQUENCY_LIMIT"
 
 HOTSPOT_MODULE_NAME = "hotspot"
 HOTSPOT_INCLUDE_RESIDUALS = "INCLUDE_RESIDUALS"
@@ -210,9 +211,15 @@ def load_efficiency_stats(efficiency_stats: str) -> dict:
     # Brief rename for more friendly names
     renames = {
         "EDP@Constant": "edp_constant",
+        "EDP@Potential": "edp_potential",
         "Energy@Constant": "energy_constant",
+        "Energy@Potential": "energy_potential",
         "IPS@Conservative": "ips_conservative",
         "IPS@Potential": "ips_potential",
+        "MaxFreq": "max_freq",
+        "AverageFreq": "avg_freq",
+        "MaxTemp": "max_temp",
+        "AverageTemp": "avg_temp",
     }
 
     renamed_results = {}
@@ -415,6 +422,13 @@ def tei_get_frequency(temperature_celsius: float, voltage: float):
     d_3 = 10.6
     d_4 = -2.66
 
+    if math.isnan(temperature_celsius):
+        error(f"Got NaN temperature in get_frequency, defaulting to 77")
+        # TODO: default temperature from config
+        temperature_celsius = 77
+
+    info(f"Getting frequency, voltage: {voltage}, temp: {temperature_celsius}")
+
     # f_{max}=d_0 V_{dd}^2+d_1V_{dd}T+d_2T+d_3V_{dd}+d_4
 
     # TODO: can re-arrange into a nice quadratic
@@ -436,7 +450,9 @@ def tei_select_frequency(
     precision = float(config[MCPAT_CFG_MODULE_NAME][MCPAT_FREQUENCY_PRECISION])
 
     if math.isnan(frequency):
-        return float("nan")
+        error("Received NaN frequency from tei_get_frequency")
+
+        return float(config[MCPAT_CFG_MODULE_NAME][MCPAT_CLOCK_RATE_MHZ]) / 1000.0
 
     return round(frequency / precision) * precision
 

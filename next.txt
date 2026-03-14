@@ -1,7 +1,0 @@
-- average frequency weighted by the execution time of each block
-- calculate these stats using correct maximum frequency, including in McPAT to get good power
-- computing ips, edp | absolute values: peak temp, average freq, max frequency, normalised avg power consumption, how many calling points for each paper we implement (including ourselves)
-
-- max, min, avg temp for ETC, to show thermal safety
-- aim for 2 prior works, minimal implementaton
-

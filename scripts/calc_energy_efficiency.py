@@ -1,9 +1,8 @@
 import argparse
-
-from numpy import minimum
 import utils
 import pandas as pd
 import os
+import math
 
 STAT_EXPLAINED = """
 # All stats are given as percentage increases
@@ -225,6 +224,12 @@ def main():
 
         block_voltage = row_data["voltage"].iloc[0]
         block_frequency = row_data["frequency"].iloc[0]
+
+        if math.isnan(block_frequency):
+            utils.error(
+                f"Got NaN block frequency for block {i}, replacing with {frequency}"
+            )
+            block_frequency = frequency
 
         utils.info(
             f"Block voltage: {block_voltage}, Block frequency: {block_frequency}"
