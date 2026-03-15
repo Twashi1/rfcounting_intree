@@ -195,3 +195,25 @@ AverageFreq: 3.10
 MaxFreq: 4.10
 AverageTemp: 70.59
 MaxTemp: 83.33
+Test name: gemm
+Energy@Constant: -31.6948%
+Energy@Potential: -31.9506%
+EDP@Constant: -31.6948%
+EDP@Potential: -34.1422%
+IPS@Conservative: 0.0000%
+IPS@Potential: 3.3278%
+AverageFreq: 3.10
+MaxFreq: 4.10
+AverageTemp: 70.59
+MaxTemp: 83.33
+Test name: gemm
+Energy@Constant: -31.7258%
+Energy@Potential: -31.7280%
+EDP@Constant: -31.7258%
+EDP@Potential: -31.7469%
+IPS@Conservative: 0.0000%
+IPS@Potential: 0.0277%
+AverageFreq: 3.00
+MaxFreq: 4.10
+AverageTemp: 77.65
+MaxTemp: 83.33

@@ -3,8 +3,8 @@ polybench_path=$1
 test_name=$(basename "$1" .c)
 
 # NOTE: excluding buildscript, assume already built
-# sudo sh ./buildscript.sh
-sudo bash ./buildpoly_specific.sh "${polybench_path}"
+# sudo ./buildscript.sh
+sudo ./buildpoly_specific.sh "${polybench_path}"
 
 # Create standard stat file
 sudo rm -f ./stats/${test_name}_path_STD.csv "./block_heats/${test_name}_*"
@@ -37,7 +37,7 @@ sudo python3 ./scripts/per_program_table.py --heatdata="HeatDataBaseline.csv" --
 # sudo python3 ./scripts/read_voltages.py --tei_voltages="./block_heats/${test_name}_ProgramHeatVoltages.csv" --out_voltages="./block_heats/${test_name}_OutVoltages.csv"
 
 # Calculate EDP
-sudo python3 ./scripts/calc_energy_efficiency.py --stats="./stats/${test_name}_path_STD.csv" --mcpat_ins="./mcpat_inputs/${test_name}" --mcpat_outs="./mcpat_out/${test_name}" --tei_vf_levels="VoltageFrequency.csv" --file_prefix="${test_name}"
+sudo python3 ./scripts/calc_energy_efficiency.py --stats="./stats/${test_name}_path_STD.csv" --mcpat_ins="./mcpat_inputs/${test_name}" --mcpat_outs="./mcpat_out/${test_name}" --tei_vf_levels="VoltageFrequency.csv" --file_prefix="${test_name}" --heat_data="./block_heats/${test_name}_ProgramHeat.csv" --baseline_heat="./block_heats/${test_name}_Baseline_ProgramHeat.csv"
 
 # Calculate temperature difference
 sudo python3 ./scripts/temp_difference.py --etc_heat="./block_heats/${test_name}_ProgramHeat.csv" --baseline_heat="./block_heats/${test_name}_Baseline_ProgramHeat.csv" --out_prefix="./block_heats/${test_name}"

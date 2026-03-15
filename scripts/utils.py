@@ -6,12 +6,11 @@ import math
 import subprocess
 import inspect
 import os
+from numpy import int_
 import pandas as pd
 import configparser
 from collections import defaultdict
 from pathlib import Path
-
-from pandas.core.tools.datetimes import precision_from_unit
 
 MCPAT_CFG_MODULE_NAME = "mcpat"
 MCPAT_CLOCK_RATE_MHZ = "CLOCK_RATE"
@@ -236,6 +235,17 @@ def load_efficiency_stats(efficiency_stats: str) -> dict:
     return renamed_results
 
 
+def load_path_blocks(path_blocks: str) -> pd.DataFrame:
+    df = pd.read_csv(path_blocks)
+    int_columns = ["path_index", "block_id"]
+    float_columns = ["cycle_count", "freq", "instr_count"]
+
+    df[int_columns] = df[int_columns].astype(int)
+    df[float_columns] = df[float_columns].astype(float)
+
+    return df
+
+
 def load_temperature_diff_stats(temp_diff: str) -> pd.DataFrame:
     # Should be single-part csv so can just use pandas
     df = pd.read_csv(temp_diff)
@@ -448,13 +458,17 @@ def tei_select_frequency(
     frequency = tei_get_frequency(temperature_celsius, voltage)
 
     precision = float(config[MCPAT_CFG_MODULE_NAME][MCPAT_FREQUENCY_PRECISION])
+    maximum_frequency = float(config[MCPAT_CFG_MODULE_NAME][MCPAT_FREQUENCY_LIMIT])
 
     if math.isnan(frequency):
         error("Received NaN frequency from tei_get_frequency")
 
         return float(config[MCPAT_CFG_MODULE_NAME][MCPAT_CLOCK_RATE_MHZ]) / 1000.0
 
-    return round(frequency / precision) * precision
+    selected_frequency = round(frequency / precision) * precision
+    selected_frequency = min(selected_frequency, maximum_frequency)
+
+    return selected_frequency
 
 
 def tei_select_voltage(
@@ -1186,6 +1200,8 @@ def get_stats_df_subgraphs(csv_path: str, module_index: int) -> [pd.DataFrame]:
     df[PATH_INDEX] = df[PATH_INDEX].astype("Int64")
     df[IS_ENTRY] = df[IS_ENTRY].astype(bool)
     df[IS_EXIT] = df[IS_EXIT].astype(bool)
+    # TODO: very bad, but easiest solution
+    df["block_id"] = df[PATH_INDEX].copy()
 
     # This doesn't include the estimated columns, because we haven't added estimated columns
     other_cols = [c for c in df.columns if c not in cols]
@@ -1209,10 +1225,6 @@ def get_stats_df_subgraphs(csv_path: str, module_index: int) -> [pd.DataFrame]:
     # - CFG we need additional input for so another function can handle that likely
 
     return dfs
-
-
-def get_stats_df_calling_points():
-    fatal()
 
 
 def get_stats_df_gem5_run(input_path: str) -> pd.DataFrame:

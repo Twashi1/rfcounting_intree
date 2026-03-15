@@ -3,8 +3,8 @@ polybench_path=$1
 test_name=$(basename "$1" .c)
 
 # NOTE: excluding buildscript, assume already built
-# sudo sh ./buildscript.sh
-sudo bash ./buildpoly_specific.sh "${polybench_path}"
+# sudo ./buildscript.sh
+sudo ./buildpoly_specific.sh "${polybench_path}"
 
 rm -f ./stats/${test_name}_mbb_STD.csv ./stats/${test_name}_path_STD.csv "./block_heats/${test_name}_*"
 

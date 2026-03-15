@@ -2,3 +2,11 @@ Test ./block_heats/gemm: Max temperature 83.33000000000004 degrees
 Test ./block_heats/gemm: Max temperature 83.33000000000004 degrees
 Test ./block_heats/gemm: Max temperature 83.33000000000004 degrees
 Test ./block_heats/gemm: Max temperature 83.33000000000004 degrees
+Test ./block_heats/gemm: Max temperature 83.33000000000004 degrees
+Test ./block_heats/gemm: Max temperature 83.33000000000004 degrees
+Test ./block_heats/gemm: Max temperature 83.33000000000004 degrees
+Test ./block_heats/gemm: Max temperature 83.33000000000004 degrees
+Test ./block_heats/gemm: Max temperature 83.33000000000004 degrees
+Test ./block_heats/gemm: Max temperature 83.33000000000004 degrees
+Test ./block_heats/gemm: Max temperature 83.33000000000004 degrees
+Test ./block_heats/gemm: Max temperature 83.33000000000004 degrees

@@ -380,6 +380,7 @@ def estimate_block_heat(
     flp_df: pd.DataFrame,
     voltage_levels: list,
     hotspot_config_file: str,
+    variable_frequency: bool,
     override_voltage: float | None = None,
 ) -> tuple[float, float, dict]:
     use_residuals = bool(
@@ -403,7 +404,7 @@ def estimate_block_heat(
     }
 
     utils.info(
-        f"Block id: {node=} has {len(parent_heats)} parents, or {prevs} dependencies"
+        f"Block id: {node=} has {len(parent_heats)} parents with valid heat dependencies, with {prevs} total dependencies"
     )
 
     # Get the new heat
@@ -436,6 +437,9 @@ def estimate_block_heat(
     desired_frequency = utils.tei_select_frequency(
         config, assumed_temperature, desired_voltage
     )
+
+    if not variable_frequency:
+        desired_frequency = clock_rate_ghz
 
     if override_voltage is not None:
         utils.info(
@@ -479,6 +483,7 @@ def calculate_all_heat(
     hotspot_config_file: str,
     voltage_levels: list,
     flp_df: pd.DataFrame,
+    variable_frequency: bool,
     disable_tei: bool,
 ):
     maximum_heat = float(
@@ -520,6 +525,9 @@ def calculate_all_heat(
         if node not in nodes_to_consider:
             continue
 
+        # In the path-based case, this node is a subgraph index
+        #   so instead; we want to take the stats of the node that is the subgraph root
+
         v, f, block_heat = estimate_block_heat(
             parents,
             node,
@@ -533,6 +541,7 @@ def calculate_all_heat(
             flp_df,
             voltage_levels,
             hotspot_config_file,
+            variable_frequency,
             override_voltage,  # Value will be None, if we choose to enable TEI
         )
 
@@ -557,6 +566,7 @@ def calculate_all_heat(
                 flp_df,
                 voltage_levels,
                 hotspot_config_file,
+                variable_frequency,
                 adjustment,
             )
 
@@ -697,9 +707,15 @@ def main():
         help="Disable/enable performing our estimation of heat for the baseline voltage",
     )
     parser.add_argument(
+        "--path_based",
+        type=bool,
+        default=False,
+        help="Should computation be path-based (requires correct entry of path-based parameters)",
+    )
+    parser.add_argument(
         "--variable_frequency",
         type=bool,
-        default="true",
+        default=True,
         help="Allow taking the maximum TEI-aware frequency",
     )
     args = parser.parse_args()
@@ -763,6 +779,9 @@ def main():
         comp_to_nodes[k] = list(v)
 
     # Global adjacency (transforming df)
+    # TODO: here we should ideally read from start_path_index if path-based
+    # but when generating path-based we duplicated the path index to the block id
+    # so this is equivalent
     global_adj = defaultdict(list)
 
     for _, row in cfg.iterrows():
@@ -783,6 +802,7 @@ def main():
         args.configs_hotspot,
         standard_voltages.copy(),
         flp_df.copy(),
+        args.variable_frequency,
         False,
     )
 
@@ -806,6 +826,7 @@ def main():
             args.configs_hotspot,
             standard_voltages.copy(),
             flp_df.copy(),
+            False,
             True,
         )
 
