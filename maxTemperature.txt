@@ -40,3 +40,17 @@ Test ./block_heats/floyd-warshall: Max temperature 79.42000000000002 degrees
 Test ./block_heats/adi: Max temperature 79.42000000000002 degrees
 Test ./block_heats/jacobi-2d: Max temperature 79.42000000000002 degrees
 Test ./block_heats/seidel-2d: Max temperature 79.42000000000002 degrees
+Test ./block_heats/gemm: Max temperature 79.42000000000002 degrees
+Test ./block_heats/symm: Max temperature 79.42000000000002 degrees
+Test ./block_heats/syrk: Max temperature 79.42000000000002 degrees
+Test ./block_heats/gemver: Max temperature 79.42000000000002 degrees
+Test ./block_heats/gemm: Max temperature 79.42000000000002 degrees
+Test ./block_heats/symm: Max temperature 79.42000000000002 degrees
+Test ./block_heats/syrk: Max temperature 79.42000000000002 degrees
+Test ./block_heats/gemver: Max temperature 79.42000000000002 degrees
+Test ./block_heats/2mm: Max temperature 79.42000000000002 degrees
+Test ./block_heats/3mm: Max temperature 79.42000000000002 degrees
+Test ./block_heats/atax: Max temperature 79.42000000000002 degrees
+Test ./block_heats/durbin: Max temperature 79.42000000000002 degrees
+Test ./block_heats/lu: Max temperature 79.42000000000002 degrees
+Test ./block_heats/ludcmp: Max temperature 79.42000000000002 degrees

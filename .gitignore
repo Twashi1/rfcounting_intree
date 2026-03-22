@@ -14,8 +14,8 @@ old_files/
 
 *.tar.gz
 
-# Submodule (should be excluded anyway?)
-McPAT_monolithic/
+# McPAT object files
+./McPAT_monolithic/obj_opt/
 
 # Exclude mcpat_inputs since full of generated files, but keep the base file we adjust to generate our inputs
 mcpat_inputs/
