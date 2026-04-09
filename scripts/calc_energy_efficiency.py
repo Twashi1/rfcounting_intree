@@ -81,8 +81,6 @@ def calculate_edp(
     stats_df: pd.DataFrame,
 ) -> float:
     stats_df = add_energy_column(power_per_block, frequency_per_block, stats_df)
-    # Now have: execution time per basic block, power of core per basic block, should have committed instructions per basic block too
-    stats_df["ipc"] = stats_df["instr_count"] / stats_df["cycle_count"]
     # Per-block edp
     stats_df["edp"] = stats_df["energy"] * stats_df["execution_time"]
     # Overall edp, PT^2, we calculate energy per block, take sum, and then multiply by total time (delay)

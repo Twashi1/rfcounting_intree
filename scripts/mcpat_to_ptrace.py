@@ -6,6 +6,7 @@ import re
 import pandas as pd
 import os
 import subprocess
+import configparser
 from pathlib import Path
 from collections import defaultdict, deque
 
@@ -373,7 +374,7 @@ def estimate_block_heat(
     additional_block: pd.DataFrame,
     stats_df: pd.DataFrame,
     cfg: pd.DataFrame,
-    config,
+    config: configparser.ConfigParser,
     aggregate_method: str,
     request_spec: utils.PowerTraceRequestSpec,
     heat_data: dict,
@@ -381,8 +382,9 @@ def estimate_block_heat(
     voltage_levels: list,
     hotspot_config_file: str,
     variable_frequency: bool,
-    override_voltage: float | None = None,
-) -> tuple[float, float, dict]:
+    force_thermal_safety: bool,
+    force_baseline_voltage: bool,
+) -> None | tuple[float, float, dict]:
     use_residuals = bool(
         config[utils.HOTSPOT_MODULE_NAME][utils.HOTSPOT_INCLUDE_RESIDUALS]
     )
@@ -390,7 +392,6 @@ def estimate_block_heat(
         config[utils.MCPAT_CFG_MODULE_NAME][utils.MCPAT_CLOCK_RATE_MHZ]
     )
     clock_rate_ghz = clock_rate_mhz / 1e03
-    clock_rate_hz = clock_rate_mhz * 1e06
 
     heatsink_offset = float(
         config[utils.HOTSPOT_MODULE_NAME][utils.HOTSPOT_HEATSINK_OFFSET]
@@ -425,37 +426,54 @@ def estimate_block_heat(
 
     stat_block = stats_df.loc[stats_df["block_id"] == node]
 
+    if stat_block.empty:
+        utils.error(f"Block ID {node} had no stats in the dataframe")
+
+        return None
+
     if len(stat_block) != 1:
-        utils.fatal(f"Stat dataframe had multiple entries for block id {node}")
+        utils.fatal(
+            f"Stat dataframe had multiple entries for block id {node}, or missing entry"
+        )
 
     execution_cycles = stat_block.iloc[0]["cycle_count"]
 
-    # Overrided in situations where we want to run at baseline
-    desired_voltage = utils.tei_select_voltage(
-        config, assumed_temperature, clock_rate_ghz, voltage_levels
-    )
-    desired_frequency = utils.tei_select_frequency(
-        config, assumed_temperature, desired_voltage
+    test_vf_pairs = utils.tei_select_vf_pairs(
+        config,
+        assumed_temperature,
+        voltage_levels,
+        force_thermal_safety,
+        force_baseline_voltage,
+        variable_frequency,
     )
 
-    if not variable_frequency:
-        desired_frequency = clock_rate_ghz
+    vf_pairs = {}
+    vf_power_traces = {}
 
-    if override_voltage is not None:
-        utils.info(
-            f"Overriding desired {desired_voltage} voltage for {override_voltage}"
+    for desired_voltage, desired_frequency in test_vf_pairs:
+        # Node is our block id, get execution time data for it, and the mcpat row data
+        utils.info(f"Getting power trace for block_id {node} {desired_voltage}V")
+        # Grab/generate power trace for this block
+        request_spec.change_to_other_config(node, desired_voltage, desired_frequency)
+        mcpat_ptrace = utils.request_power_for_specification(request_spec)
+
+        core_power = utils.get_static_dynamic_power(mcpat_ptrace, ["Core"])
+
+        # Calculate EDP
+        edp = (
+            core_power
+            * (execution_cycles / desired_frequency)
+            * (execution_cycles / desired_frequency)
         )
-        desired_voltage = override_voltage
-        # We overwrite the desired frequency to baseline if told to override
-        desired_frequency = clock_rate_ghz
 
-    # Node is our block id, get execution time data for it, and the mcpat row data
-    utils.info(f"Getting power trace for block_id {node} {desired_voltage}V")
-    # Grab/generate power trace for this block
-    request_spec.change_to_other_config(node, desired_voltage, desired_frequency)
-    mcpat_ptrace = utils.request_power_for_specification(request_spec)
-    hotspot_ptrace = utils.mcpat_to_hotspot_units(mcpat_ptrace, flp_df, use_residuals)
-    # mcpat_ptrace = merged.loc[merged["block_id"] == node].iloc[0]
+        vf_pairs[(desired_voltage, desired_frequency)] = edp
+        vf_power_traces[(desired_voltage, desired_frequency)] = mcpat_ptrace
+
+    best_vf = min(vf_pairs, key=lambda p: vf_pairs[p])
+    best_ptrace = vf_power_traces[best_vf]
+    desired_voltage, desired_frequency = best_vf
+
+    hotspot_ptrace = utils.mcpat_to_hotspot_units(best_ptrace, flp_df, use_residuals)
 
     final_heat = get_hotspot_temp(
         hotspot_ptrace,
@@ -494,11 +512,6 @@ def calculate_all_heat(
         config[utils.MCPAT_CFG_MODULE_NAME][utils.MCPAT_BASELINE_VOLTAGE]
     )
 
-    override_voltage = None
-
-    if disable_tei:
-        override_voltage = baseline_voltage
-
     # Store all heat data for each node
     heat_data = dict()
     # Store all voltage/frequency pairs for each node
@@ -525,10 +538,11 @@ def calculate_all_heat(
         if node not in nodes_to_consider:
             continue
 
+        utils.error(f"Considering node #### {node} ####")
+
         # In the path-based case, this node is a subgraph index
         #   so instead; we want to take the stats of the node that is the subgraph root
-
-        v, f, block_heat = estimate_block_heat(
+        results = estimate_block_heat(
             parents,
             node,
             additional_block,
@@ -542,18 +556,23 @@ def calculate_all_heat(
             voltage_levels,
             hotspot_config_file,
             variable_frequency,
-            override_voltage,  # Value will be None, if we choose to enable TEI
+            False,
+            disable_tei,
         )
+
+        if results is None:
+            continue
+
+        v, f, block_heat = results
 
         # Disable safety guarding if we're not considering tei effects
         # Only perofmr safety guarding when the maximum heat of any unit
         #   is above our limit
         if not disable_tei and max(block_heat.values()) >= maximum_heat:
-            adjustment = min(voltage_levels)
             utils.warn(
                 "Block has gone above thermal safeguard, adjusting voltage to minimum"
             )
-            v, f, block_heat = estimate_block_heat(
+            results = estimate_block_heat(
                 parents,
                 node,
                 additional_block,
@@ -567,8 +586,14 @@ def calculate_all_heat(
                 voltage_levels,
                 hotspot_config_file,
                 variable_frequency,
-                adjustment,
+                True,
+                False,
             )
+
+            if results is None:
+                continue
+
+            v, f, block_heat = results
 
         heat_data[node] = block_heat
         vf_pairs[node] = {"frequency": f, "voltage": v}

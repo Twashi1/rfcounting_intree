@@ -48,6 +48,13 @@ PATH_INDEX = "path_index"
 IS_ENTRY = "is_entry"
 IS_EXIT = "is_exit"
 
+L1D_HITS = "l1d_hits"
+L1D_MISS = "l1d_miss"
+L1I_HITS = "l1i_hits"
+L1I_MISS = "l1i_miss"
+L2_HITS = "l2_hits"
+L2_MISS = "l2_miss"
+
 CYCLE_COUNT = "cycle_count"
 INSTR_COUNT = "instr_count"
 INT_INSTR_COUNT = "int_instr_count"
@@ -158,7 +165,7 @@ def error(message):
 def fatal(message):
     script, line = _grab_metadata()
     print(f"[FATAL {script}:{line}] {message}")
-    RuntimeError(f"[FATAL {script}:{line}] {message}")
+    raise RuntimeError(f"[FATAL {script}:{line}] {message}")
 
 
 def load_efficiency_stats(efficiency_stats: str) -> dict:
@@ -452,6 +459,10 @@ def tei_get_frequency(temperature_celsius: float, voltage: float):
     )
 
 
+def round_to_precision(value: float, precision: float) -> float:
+    return round(value / precision) * precision
+
+
 def tei_select_frequency(
     config: configparser.ConfigParser, temperature_celsius: float, voltage: float
 ) -> float:
@@ -525,6 +536,53 @@ def tei_select_voltage(
     final_voltage = voltage_levels[-1] if round_up else voltage_levels[0]
 
     return final_voltage
+
+
+def tei_select_vf_pairs(
+    config: configparser.ConfigParser,
+    temperature_celsius: float,
+    voltage_levels: list,
+    force_thermal_safety: bool,
+    force_baseline_voltage: bool,
+    allow_variable_frequency: bool,
+) -> list:
+    # TODO: could consider further vf pairs,  but adds more computation and
+    # there's not a good case for raising voltage/frequency higher; tends to hinder energy efficiency further
+    precision = float(config[MCPAT_CFG_MODULE_NAME][MCPAT_FREQUENCY_PRECISION])
+
+    vf_pairs = []
+
+    default_frequency = (
+        float(config[MCPAT_CFG_MODULE_NAME][MCPAT_CLOCK_RATE_MHZ]) / 1000.0
+    )
+    default_voltage = float(config[MCPAT_CFG_MODULE_NAME][MCPAT_BASELINE_VOLTAGE])
+
+    initial_voltage = tei_select_voltage(
+        config, temperature_celsius, default_frequency, voltage_levels
+    )
+
+    if force_thermal_safety:
+        return [(initial_voltage, default_frequency)]
+
+    maximum_frequency = tei_select_frequency(
+        config, temperature_celsius, initial_voltage
+    )
+
+    if force_baseline_voltage:
+        initial_voltage = default_voltage
+
+    vf_pairs.append((initial_voltage, default_frequency))
+
+    if allow_variable_frequency:
+        current_freq = maximum_frequency
+
+        # Try all frequencies
+        while current_freq > default_frequency:
+            info(f"Selecting alternative frequency: {current_freq}")
+            vf_pairs.append((initial_voltage, current_freq))
+            current_freq -= precision
+
+    return vf_pairs
 
 
 def generate_mcpat_power_name(
@@ -1330,17 +1388,38 @@ def get_stats_df_gem5_run(input_path: str) -> pd.DataFrame:
     df[FP_ACCESS] = int(data["board.processor.cores.core.fpAluAccesses"])
     df[IALU_ACCESS] = int(data["board.processor.cores.core.intAluAccesses"])
 
+    df[CDB_ALU_ACCESSES] = df[IALU_ACCESS]
+    df[CDB_FP_ACCESSES] = df[FP_ACCESS]
+    df[CDB_MUL_ACCESSES] = df[MUL_ACCESS]
+
     df[BTB_READS] = int(data["board.processor.cores.core.branchPred.BTBLookups"])
     df[BTB_WRITES] = int(data["board.processor.cores.core.branchPred.BTBUpdates"])
 
-    df[COMMITTED_INSTRUCTIONS] = self.total_instructions
-    df[COMMITTED_INT_INSTRUCTIONS] = self.int_instructions
-    df[COMMITTED_FLOAT_INSTRUCTIONS] = self.float_instructions
-    df[FP_RENAME_WRITES] = self.fp_rename_reads // 2
-    df[CDB_ALU_ACCESSES] = self.ialu_access
-    df[CDB_FP_ACCESSES] = self.fp_access
-    df[CDB_MUL_ACCESSES] = self.mul_access
-    df[BUSY_CYCLES] = self.cycle_count - self.idle_cycles
+    df[COMMITTED_INSTR] = int(data["board.processor.cores.core.commitStats0.numInsts"])
+    df[COMMITTED_INT_INSTR] = int(
+        data["board.processor.cores.core.commitStats0.numIntInsts"]
+    )
+    df[COMMITTED_FLOAT_INSTR] = int(
+        data["board.processor.cores.core.commitStats0.numFpInsts"]
+    )
+
+    df[FP_RENAME_WRITES] = int(data["board.processor.cores.core.rename.fpLookups"]) / 2
+
+    df[BUSY_CYCLES] = df[CYCLE_COUNT] - df[IDLE_CYCLES]
+
+    df[L1D_HITS] = int(data["board.cache_hierarchy.l1dcaches.ReadReq.hits::total"])
+    df[L1D_MISS] = int(data["board.cache_hierarchy.l1dcaches.ReadReq.misses::total"])
+
+    df[L1I_HITS] = int(data["board.cache_hierarchy.l1icaches.ReadReq.hits::total"])
+    df[L1I_MISS] = int(data["board.cache_hierarchy.l1icaches.ReadReq.misses::total"])
+
+    df[L2_HITS] = int(
+        data["board.cache_hierarchy.l2caches.ReadExReq.hits::total"]
+    ) + int(data["board.cache_hierarchy.l2caches.ReadSharedReq.hits::total"])
+
+    df[L2_MISS] = int(
+        data["board.cache_hierarchy.l2caches.ReadExReq.misses::total"]
+    ) + int(data["board.cache_hierarchy.l2caches.ReadSharedReq.misses::total"])
 
     # TODO: does this work? we're creating a df off a dict of scalar values, probably will need lists or this will auto-convert to a series or error
     return pd.DataFrame(df)

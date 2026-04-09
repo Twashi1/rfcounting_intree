@@ -24,7 +24,7 @@ sudo rm -rf "./mcpat_out/${test_name}"
 # sudo sh ./run_mcpat_all.sh "./mcpat_inputs/${test_name}"
 
 # Feed outputs into ptrace to generate final heats
-sudo python3 ./scripts/mcpat_to_ptrace.py --control_flow="PathCFG.csv" --mcpat_outs="./mcpat_out/${test_name}" --module_index=2 --aggregate=likely --mcpat_ins="./mcpat_inputs/${test_name}" --stats="./stats/${test_name}_path_STD.csv" --variable_frequency="false"
+sudo python3 ./scripts/mcpat_to_ptrace.py --control_flow="PathCFG.csv" --mcpat_outs="./mcpat_out/${test_name}" --module_index=2 --aggregate=likely --mcpat_ins="./mcpat_inputs/${test_name}" --stats="./stats/${test_name}_path_STD.csv" --variable_frequency="true"
 
 # Generate heat data table
 sudo python3 ./scripts/per_program_table.py --name="./block_heats/${test_name}" --stats="./stats/${test_name}_path_STD.csv"

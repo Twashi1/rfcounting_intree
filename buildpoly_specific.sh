@@ -71,3 +71,4 @@ LLVM_PROFILE_FILE="$OBJ/$DIRNAME/$NAME.profraw" \
   "$OBJ/$DIRNAME/$NAME.pgo.merged.ll" \
   -o "$OBJ/$DIRNAME/$NAME.o"
 
+# clang -no-pie object file -o output executabel
