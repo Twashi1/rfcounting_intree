@@ -1,0 +1,32 @@
+
+# All stats are given as percentage increases
+# - EDP, lower is better
+# - Energy, lower is better
+# - IPS, higher is better
+# EDP@Constant, Energy@Constant - Measures difference between
+#   ETC:        Voltage: TEI-aware,  Frequency: Baseline, 3GHz
+#   Baseline:   Voltage: Baseline,   Frequency: Baseline, 3GHz
+# EDP@Potential, Energy@Potential- Measures difference between
+#   ETC:        Voltage: TEI-aware,  Frequency: TEI-aware
+#   Baseline:   Voltage: Baseline,   Frequency: Baseline, 3GHz
+# IPS@Conservative - Measures difference between
+#   ETC:        Frequency: Minimum between TEI-aware, and baseline 
+#   Baseline:   Frequency: Baseline, 3GHz 
+# IPS@Potential - Measures difference between
+#   ETC:        Frequency: TEI-aware (potential maximum)
+#   Baseline:   Frequency: Baseline, 3GHz
+# MaxFreq - Maximum frequency ever used in TEI-aware approach
+# AverageFreq - Average frequency used, weighted by execution time
+# MaxTemp - Maximum temperature ever used in TEI-aware approach
+# AverageTemp - Average temperature used, weighted by execution time
+Test name: gemm
+Energy@Constant: -31.7258%
+Energy@Potential: -31.7258%
+EDP@Constant: -31.7258%
+EDP@Potential: -31.7258%
+IPS@Conservative: -0.0000%
+IPS@Potential: 0.0000%
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 77.00
+MaxTemp: 77.03

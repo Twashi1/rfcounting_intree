@@ -29,7 +29,7 @@ def main():
     loaded_stats = utils.load_standard_stat_file(args.stats)
     loaded_cfg = utils.load_cfg(args.input_cfg)
     # TODO: assert that selected voltage level is within the CFG defined levels
-    utils.modify_xml(
+    utils.create_mcpat_input_xml_etc(
         args.input_xml, args.output_xml, loaded_stats, loaded_cfg, args.voltage_level
     )
 

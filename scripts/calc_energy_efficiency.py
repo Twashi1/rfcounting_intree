@@ -282,6 +282,8 @@ def main():
     edp_potential_etc = calculate_edp(core_power_tvtf, core_freq_tf, stats_df.copy())
     edp_baseline = calculate_edp(core_power_cvcf, core_freq_cf, stats_df.copy())
 
+    print(f"{edp_constant_etc=}, {edp_baseline=}, {edp_potential_etc=}")
+
     ips_potential_etc = calculate_ips(core_freq_tf, stats_df.copy())
     ips_conservative_etc = calculate_ips(minimum_frequency_per_block, stats_df.copy())
     ips_baseline = calculate_ips(core_freq_cf, stats_df.copy())

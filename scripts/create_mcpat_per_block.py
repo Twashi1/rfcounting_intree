@@ -60,7 +60,7 @@ def main():
         # Really ugly, we're using a counter to distinguish, so its in order of appearance of _STD.csv file
         #   we have no metadata inside the McPAT output to support us, so we have to match these up later
         for voltage_id in range(len(voltage_levels)):
-            utils.modify_xml(
+            utils.create_mcpat_input_xml_etc(
                 args.input_xml,
                 path + f"_v{voltage_id}.xml",
                 row_data,

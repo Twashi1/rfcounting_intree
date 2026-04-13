@@ -66,9 +66,9 @@ LLVM_PROFILE_FILE="$OBJ/$DIRNAME/$NAME.profraw" \
 
 # 8. Final llc with machine passes
 ./llvm-build/bin/llc \
-  -debug-only=reg-access-prera,reg-access-postra \
+  -debug-only=reg-access-prera,ext-loop-splitting \
   -filetype=obj \
   "$OBJ/$DIRNAME/$NAME.pgo.merged.ll" \
   -o "$OBJ/$DIRNAME/$NAME.o"
 
-# clang -no-pie object file -o output executabel
+# to get executable: clang -no-pie object file -o output executabel

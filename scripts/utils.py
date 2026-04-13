@@ -96,6 +96,11 @@ CDB_ALU_ACCESSES = "cdb_alu_accesses"
 CDB_FP_ACCESSES = "cdb_fp_accesses"
 BTB_READS = "btb_reads"
 BTB_WRITES = "btb_writes"
+VOLTAGE_TIME_PRODUCT = "voltage_time_product"
+DVFS_CALL_COUNT = "dvfs_call_count"
+AVERAGE_VOLTAGE = "average_voltage"
+AVERAGE_FREQUENCY = "average_frequency"
+IPC = "ipc"
 
 MCPAT_DESIRED_UNITS = [
     "Core",
@@ -686,7 +691,7 @@ def _request_power_trace_for_voltage(
 
         # TODO: believe originates here, sometimes stats_df is very wrong
         # some structure like {column: {0: value}, ...}
-        modify_xml(
+        create_mcpat_input_xml_etc(
             input_xml,
             input_stats_xml,
             (stats_df.loc[stats_df["block_id"] == block_id].iloc[0]).to_dict(),
@@ -1286,143 +1291,155 @@ def get_stats_df_subgraphs(csv_path: str, module_index: int) -> [pd.DataFrame]:
 
 
 def get_stats_df_gem5_run(input_path: str) -> pd.DataFrame:
-    # TODO: note df is just a dictionary
-    df = {}
-    data = {}
+    block_pattern = re.compile(
+        r"-+\s*Begin Simulation Statistics\s*-+(.*?)"
+        r"-+\s*End Simulation Statistics\s*-+",
+        re.DOTALL | re.IGNORECASE
+    )
+
+    # generic stat line: <name><whitespace><value><whitespace><anything>
+    stat_pattern = re.compile(
+        r"""
+        ^(?P<name>\S+)\s+
+        (?P<value>[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)
+        \s+.*$
+        """,
+        re.MULTILINE | re.VERBOSE
+    )
 
     with open(input_path, "r") as f:
-        # match non-whitespace, whitespace, non-whitespace
-        # so name, whitespace, value
-        pattern = re.compile(r"^(\S+)\s+(\S+)")
+        text = f.read()
 
-        for line in f.readlines():
-            # ignore --- begin/end simulation
-            if line.startswith("----"):
-                continue
+    rows = []
 
-            # empty line
-            if not line:
-                continue
+    for i, block in enumerate(block_pattern.findall(text)):
+        stats = {"block": i}
+        for match in stat_pattern.finditer(block):
+            name = match.group("name")
+            value = float(match.group("value"))
+            stats[name] = value
 
-            m = pattern.match(line)
+        renamed_stats = {}
 
-            if not m:
-                continue
+        # Mapping gem5 data columns to our columns
+        # Some of these are additional stats from our DVFS simulator
+        renamed_stats[DVFS_CALL_COUNT] = int(stats.get("board.processor.cores.core.dvfsCallCount", 0))
+        renamed_stats[AVERAGE_VOLTAGE] = float(stats.get("board.processor.cores.core.averageVoltage", 0))
+        renamed_stats[AVERAGE_FREQUENCY] = float(stats.get("board.processor.cores.core.averageFrequency", 0))
+        renamed_stats[IPC] = float(stats.get("board.processor.cores.core.ipc", 0))
 
-            key, val = m.groups()
-            data[key] = val
-
-    # Mapping gem5 data columns to our columns
-    df[CYCLE_COUNT] = int(data["board.processor.cores.core.numCycles"])
-    df[IDLE_CYCLES] = int(data["board.processor.cores.core.idleCycles"])
-    df[INSTR_COUNT] = int(data["board.processor.cores.core.commitStats0.numInsts"])
-    df[INT_INSTR_COUNT] = int(
-        data["board.processor.cores.core.commitStats0.numIntInsts"]
-    )
-    df[FLOAT_INSTR_COUNT] = int(
-        data["board.processor.cores.core.commitStats0.numFpInsts"]
-    )
-    df[BRANCH_INSTR_COUNT] = int(
-        data["board.processor.cores.core.executeStats0.numBranches"]
-    )
-    df[BRANCH_MISPREDICTIONS] = int(
-        data["board.processor.cores.core.commit.branchMispredicts"]
-    )
-    df[LOADS] = int(data["board.processor.cores.core.commitStats0.numLoadInsts"])
-    df[STORES] = int(data["board.processor.cores.core.commitStats0.numStoreInsts"])
-    df[ROB_READS] = int(data["board.processor.cores.core.rob.reads"])
-    df[ROB_WRITES] = int(data["board.processor.cores.core.rob.writes"])
-    df[RENAME_READS] = int(data["board.processor.cores.core.rename.lookups"])
-    df[RENAME_WRITES] = int(data["board.processor.cores.core.rename.renamedOperands"])
-    df[FP_RENAME_READS] = int(data["board.processor.cores.core.rename.fpLookups"])
-    df[INST_WINDOW_READS] = int(
-        data["board.processor.cores.core.intInstQueueReads"]
-    ) + int(data["board.processor.cores.core.fpInstQueueReads"])
-    df[INST_WINDOW_WRITES] = int(
-        data["board.processor.cores.core.intInstQueueWrites"]
-    ) + int(data["board.processor.cores.core.fpInstQueueWrites"])
-    df[INST_WINDOW_WAKEUP_ACCESSES] = int(
-        data["board.processor.cores.core.intInstQueueWakeupAccesses"]
-    ) + int(data["board.processor.cores.core.fpInstQueueWakeupAccesses"])
-    df[FP_INST_WINDOW_READS] = int(data["board.processor.cores.core.fpInstQueueReads"])
-    df[FP_INST_WINDOW_WRITES] = int(
-        data["board.processor.cores.core.fpInstQueueWrites"]
-    )
-    df[FP_INST_WINDOW_WAKEUP_ACCESSES] = int(
-        data["board.processor.cores.core.fpInstQueueWakeupAccesses"]
-    )
-
-    df[INT_REGFILE_READS] = int(
-        data["board.processor.cores.core.executeStats0.numIntRegReads"]
-    )
-    df[INT_REGFILE_WRITES] = int(
-        data["board.processor.cores.core.executeStats0.numIntRegWrites"]
-    )
-    df[FLOAT_REGFILE_READS] = int(
-        data["board.processor.cores.core.executeStats0.numFpRegReads"]
-    )
-    df[FLOAT_REGFILE_WRITES] = int(
-        data["board.processor.cores.core.executeStats0.numFpRegWrites"]
-    )
-    df[FUNCTION_CALLS] = int(data["board.processor.cores.core.commit.functionCalls"])
-    df[CONTEXT_SWITCHES] = int(
-        data["board.processor.cores.core.commitStats0.committedControl::IsReturn"]
-    ) + int(data["board.processor.cores.core.commitStats0.committedControl::IsCall"])
-
-    # TODO: is this wrong?
-    df[MUL_ACCESS] = (
-        int(data["board.processor.cores.core.commitStats0.committedInstType::IntMult"])
-        + int(
-            data["board.processor.cores.core.commitStats0.committedInstType::FloatMult"]
+        renamed_stats[CYCLE_COUNT] = int(stats.get("board.processor.cores.core.numCycles", 0))
+        renamed_stats[IDLE_CYCLES] = int(stats.get("board.processor.cores.core.idleCycles", 0))
+        renamed_stats[INSTR_COUNT] = int(stats.get("board.processor.cores.core.commitStats0.numInsts", 0))
+        renamed_stats[INT_INSTR_COUNT] = int(
+            stats.get("board.processor.cores.core.commitStats0.numIntInsts", 0)
         )
-        + int(
-            data["board.processor.cores.core.commitStats0.committedInstType::SimdMult"]
+        renamed_stats[FLOAT_INSTR_COUNT] = int(
+            stats.get("board.processor.cores.core.commitStats0.numFpInsts", 0)
         )
-        + int(
-            data[
-                "board.processor.cores.core.commitStats0.committedInstType::SimdFloatMult"
-            ]
+        renamed_stats[BRANCH_INSTR_COUNT] = int(
+            stats.get("board.processor.cores.core.executeStats0.numBranches", 0)
         )
-    )
+        renamed_stats[BRANCH_MISPREDICTIONS] = int(
+            stats.get("board.processor.cores.core.commit.branchMispredicts", 0)
+        )
+        renamed_stats[LOADS] = int(stats.get("board.processor.cores.core.commitStats0.numLoadInsts", 0))
+        renamed_stats[STORES] = int(stats.get("board.processor.cores.core.commitStats0.numStoreInsts", 0))
+        renamed_stats[ROB_READS] = int(stats.get("board.processor.cores.core.rob.reads", 0))
+        renamed_stats[ROB_WRITES] = int(stats.get("board.processor.cores.core.rob.writes", 0))
+        renamed_stats[RENAME_READS] = int(stats.get("board.processor.cores.core.rename.lookups", 0))
+        renamed_stats[RENAME_WRITES] = int(stats.get("board.processor.cores.core.rename.renamedOperands", 0))
+        renamed_stats[FP_RENAME_READS] = int(stats.get("board.processor.cores.core.rename.fpLookups", 0))
+        renamed_stats[INST_WINDOW_READS] = int(
+            stats.get("board.processor.cores.core.intInstQueueReads", 0)
+        ) + int(stats.get("board.processor.cores.core.fpInstQueueReads", 0))
+        renamed_stats[INST_WINDOW_WRITES] = int(
+            stats.get("board.processor.cores.core.intInstQueueWrites", 0)
+        ) + int(stats.get("board.processor.cores.core.fpInstQueueWrites", 0))
+        renamed_stats[INST_WINDOW_WAKEUP_ACCESSES] = int(
+            stats.get("board.processor.cores.core.intInstQueueWakeupAccesses", 0)
+        ) + int(stats.get("board.processor.cores.core.fpInstQueueWakeupAccesses", 0))
+        renamed_stats[FP_INST_WINDOW_READS] = int(stats.get("board.processor.cores.core.fpInstQueueReads", 0))
+        renamed_stats[FP_INST_WINDOW_WRITES] = int(
+            stats.get("board.processor.cores.core.fpInstQueueWrites", 0)
+        )
+        renamed_stats[FP_INST_WINDOW_WAKEUP_ACCESSES] = int(
+            stats.get("board.processor.cores.core.fpInstQueueWakeupAccesses", 0)
+        )
 
-    df[FP_ACCESS] = int(data["board.processor.cores.core.fpAluAccesses"])
-    df[IALU_ACCESS] = int(data["board.processor.cores.core.intAluAccesses"])
+        renamed_stats[INT_REGFILE_READS] = int(
+            stats.get("board.processor.cores.core.executeStats0.numIntRegReads", 0)
+        )
+        renamed_stats[INT_REGFILE_WRITES] = int(
+            stats.get("board.processor.cores.core.executeStats0.numIntRegWrites", 0)
+        )
+        renamed_stats[FLOAT_REGFILE_READS] = int(
+            stats.get("board.processor.cores.core.executeStats0.numFpRegReads", 0)
+        )
+        renamed_stats[FLOAT_REGFILE_WRITES] = int(
+            stats.get("board.processor.cores.core.executeStats0.numFpRegWrites", 0)
+        )
+        renamed_stats[FUNCTION_CALLS] = int(stats.get("board.processor.cores.core.commit.functionCalls", 0))
+        renamed_stats[CONTEXT_SWITCHES] = int(
+            stats.get("board.processor.cores.core.commitStats0.committedControl::IsReturn", 0)
+        ) + int(stats.get("board.processor.cores.core.commitStats0.committedControl::IsCall", 0))
 
-    df[CDB_ALU_ACCESSES] = df[IALU_ACCESS]
-    df[CDB_FP_ACCESSES] = df[FP_ACCESS]
-    df[CDB_MUL_ACCESSES] = df[MUL_ACCESS]
+        # TODO: is this wrong?
+        renamed_stats[MUL_ACCESS] = (
+            int(stats.get("board.processor.cores.core.commitStats0.committedInstType::IntMult", 0))
+            + int(
+                stats.get("board.processor.cores.core.commitStats0.committedInstType::FloatMult", 0)
+            )
+            + int(
+                stats.get("board.processor.cores.core.commitStats0.committedInstType::SimdMult", 0)
+            )
+            + int(
+                stats.get(
+                    "board.processor.cores.core.commitStats0.committedInstType::SimdFloatMult", 0
+                    )
+            )
+        )
 
-    df[BTB_READS] = int(data["board.processor.cores.core.branchPred.BTBLookups"])
-    df[BTB_WRITES] = int(data["board.processor.cores.core.branchPred.BTBUpdates"])
+        renamed_stats[FP_ACCESS] = int(stats.get("board.processor.cores.core.fpAluAccesses", 0))
+        renamed_stats[IALU_ACCESS] = int(stats.get("board.processor.cores.core.intAluAccesses", 0))
 
-    df[COMMITTED_INSTR] = int(data["board.processor.cores.core.commitStats0.numInsts"])
-    df[COMMITTED_INT_INSTR] = int(
-        data["board.processor.cores.core.commitStats0.numIntInsts"]
-    )
-    df[COMMITTED_FLOAT_INSTR] = int(
-        data["board.processor.cores.core.commitStats0.numFpInsts"]
-    )
+        renamed_stats[CDB_ALU_ACCESSES] = renamed_stats[IALU_ACCESS]
+        renamed_stats[CDB_FP_ACCESSES] = renamed_stats[FP_ACCESS]
+        renamed_stats[CDB_MUL_ACCESSES] = renamed_stats[MUL_ACCESS]
 
-    df[FP_RENAME_WRITES] = int(data["board.processor.cores.core.rename.fpLookups"]) / 2
+        renamed_stats[BTB_READS] = int(stats.get("board.processor.cores.core.branchPred.BTBLookups", 0))
+        renamed_stats[BTB_WRITES] = int(stats.get("board.processor.cores.core.branchPred.BTBUpdates", 0))
 
-    df[BUSY_CYCLES] = df[CYCLE_COUNT] - df[IDLE_CYCLES]
+        renamed_stats[COMMITTED_INSTR] = int(stats.get("board.processor.cores.core.commitStats0.numInsts", 0))
+        renamed_stats[COMMITTED_INT_INSTR] = int(
+            stats.get("board.processor.cores.core.commitStats0.numIntInsts", 0)
+        )
+        renamed_stats[COMMITTED_FLOAT_INSTR] = int(
+            stats.get("board.processor.cores.core.commitStats0.numFpInsts", 0)
+        )
 
-    df[L1D_HITS] = int(data["board.cache_hierarchy.l1dcaches.ReadReq.hits::total"])
-    df[L1D_MISS] = int(data["board.cache_hierarchy.l1dcaches.ReadReq.misses::total"])
+        renamed_stats[FP_RENAME_WRITES] = int(stats.get("board.processor.cores.core.rename.fpLookups", 0)) / 2
 
-    df[L1I_HITS] = int(data["board.cache_hierarchy.l1icaches.ReadReq.hits::total"])
-    df[L1I_MISS] = int(data["board.cache_hierarchy.l1icaches.ReadReq.misses::total"])
+        renamed_stats[BUSY_CYCLES] = renamed_stats[CYCLE_COUNT] - renamed_stats[IDLE_CYCLES]
 
-    df[L2_HITS] = int(
-        data["board.cache_hierarchy.l2caches.ReadExReq.hits::total"]
-    ) + int(data["board.cache_hierarchy.l2caches.ReadSharedReq.hits::total"])
+        renamed_stats[L1D_HITS] = int(stats.get("board.cache_hierarchy.l1dcaches.ReadReq.hits::total", 0))
+        renamed_stats[L1D_MISS] = int(stats.get("board.cache_hierarchy.l1dcaches.ReadReq.misses::total", 0))
 
-    df[L2_MISS] = int(
-        data["board.cache_hierarchy.l2caches.ReadExReq.misses::total"]
-    ) + int(data["board.cache_hierarchy.l2caches.ReadSharedReq.misses::total"])
+        renamed_stats[L1I_HITS] = int(stats.get("board.cache_hierarchy.l1icaches.ReadReq.hits::total", 0))
+        renamed_stats[L1I_MISS] = int(stats.get("board.cache_hierarchy.l1icaches.ReadReq.misses::total", 0))
+
+        renamed_stats[L2_HITS] = int(
+            stats.get("board.cache_hierarchy.l2caches.ReadExReq.hits::total", 0)
+        ) + int(stats.get("board.cache_hierarchy.l2caches.ReadSharedReq.hits::total", 0))
+
+        renamed_stats[L2_MISS] = int(
+            stats.get("board.cache_hierarchy.l2caches.ReadExReq.misses::total", 0)
+        ) + int(stats.get("board.cache_hierarchy.l2caches.ReadSharedReq.misses::total", 0))
+
+        rows.append(renamed_stats)
 
     # TODO: does this work? we're creating a df off a dict of scalar values, probably will need lists or this will auto-convert to a series or error
-    return pd.DataFrame(df)
+    return pd.DataFrame(rows)
 
 
 def stats_df_estimate_missing_cols(df: pd.DataFrame):
@@ -1460,7 +1477,7 @@ def stats_df_estimate_missing_cols(df: pd.DataFrame):
     return df
 
 
-def modify_xml(
+def create_mcpat_input_xml_etc(
     input_path: str,
     output_path: str,
     input_stats: dict,
@@ -1468,18 +1485,18 @@ def modify_xml(
     voltage_level_id: int,
     frequency: float,
 ) -> None:
-    tree = ET.parse(input_path)
-
-    # Convert to MHz
-    frequency *= 1.0e3
-
-    if frequency < 1000 or frequency > 5000:
-        utils.fatal(f"Frequency was outside expected range, was: {frequency}MHz")
-
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
     voltage_levels = load_voltage_levels_from_cfg(input_cfg)
     vdd = f"{voltage_levels[voltage_level_id]:.2f}"
+
+    create_mcpat_input_xml(input_path, output_path, input_stats, input_cfg, vdd, frequency * 1.0e3) 
+
+
+def create_mcpat_input_xml(input_path: str, output_path: str, input_stats: dict, input_cfg: configparser.ConfigParser, vdd: float, frequency_mhz: float) -> None:
+    tree = ET.parse(input_path)
+
+    frequency = frequency_mhz
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     mcpat_config = input_cfg[MCPAT_CFG_MODULE_NAME]
 
@@ -1496,7 +1513,7 @@ def modify_xml(
         "target_core_clockrate",
         str(frequency),
     )
-    change_xml_property(tree, "system/system.core0", "param", "vdd", vdd)
+    change_xml_property(tree, "system/system.core0", "param", "vdd", str(vdd))
 
     change_xml_property(
         tree, "system", "stat", "total_cycles", str(input_stats[CYCLE_COUNT])
@@ -1622,7 +1639,6 @@ def modify_xml(
         "rename_writes",
         str(input_stats[RENAME_WRITES]),
     )
-    # TODO: unsure about below
     change_xml_property(
         tree,
         "system/system.core0",
@@ -1659,7 +1675,6 @@ def modify_xml(
         "inst_window_wakeup_accesses",
         str(input_stats[INST_WINDOW_WAKEUP_ACCESSES]),
     )
-    # TODO: unsure about below
     change_xml_property(
         tree,
         "system/system.core0",
