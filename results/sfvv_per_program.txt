@@ -1,3 +1,4 @@
+
 # All stats are given as percentage increases
 # - EDP, lower is better
 # - Energy, lower is better
@@ -59,7 +60,7 @@ Energy@Constant: -17.7566%
 EDP@Constant: -17.7566%
 IPS@Conservative: 0.0000%
 EDP@ETCValue: 0.0022805771567054197
-EDP@BaseValue: 0.002772961397571975
+EDP@BaseValue: 0.002772961397571976
 IPS@ETCValue: 841161218.4665588
 IPS@BaseValue: 841161218.4665588
 AverageFreq: 3.00

@@ -182,7 +182,7 @@ def load_efficiency_stats(efficiency_stats: str) -> dict:
     program_results = {}
 
     program_name_pattern = re.compile(r"^\s*Test name:\s+(.+)$")
-    stat_value_pattern = re.compile(r"^(.*?):\s*([+-]?\d+(?:\.\d+)?)%$")
+    stat_value_pattern = re.compile(r"^(.*?):\s*([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)%?$")
 
     with open(efficiency_stats, "r") as f:
         current_program = None
@@ -223,10 +223,14 @@ def load_efficiency_stats(efficiency_stats: str) -> dict:
     renames = {
         "EDP@Constant": "edp_constant",
         "EDP@Potential": "edp_potential",
+        "EDP@ETCValue": "edp_etc_value",
+        "EDP@BaseValue": "edp_base_value",
         "Energy@Constant": "energy_constant",
         "Energy@Potential": "energy_potential",
         "IPS@Conservative": "ips_conservative",
         "IPS@Potential": "ips_potential",
+        "IPS@ETCValue": "ips_etc_value",
+        "IPS@BaseValue": "ips_base_value",
         "MaxFreq": "max_freq",
         "AverageFreq": "avg_freq",
         "MaxTemp": "max_temp",
@@ -2033,5 +2037,25 @@ def load_standard_stat_file(path: str) -> pd.DataFrame:
     df[df.select_dtypes(include="number").columns] = (
         df.select_dtypes(include="number").round().astype("Int64")
     )
+
+    return df
+
+def create_unified_program_stats(efficiency_stats: dict, output_csv: str) -> pd.DataFrame:
+    df_dict = {
+        "program_name": [],
+        "edp_percent": [],
+        "energy_percent": [],
+        "ips_percent": [],
+    }
+
+    for program_name, program_data in efficiency_stats.items():
+        df_dict["program_name"].append(program_name)
+        df_dict["edp_percent"].append(-program_data["edp_potential"])
+        df_dict["energy_percent"].append(-program_data["energy_potential"])
+        df_dict["ips_percent"].append(program_data["ips_potential"])
+
+    df = pd.DataFrame(df_dict)
+
+    df.to_csv(output_csv, index=False)
 
     return df

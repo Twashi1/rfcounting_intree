@@ -1,0 +1,10 @@
+# SF = Stable frequency
+# VF = Variable frequency
+# Not auto-generated, just copied from a print out in random_results.py
+# These are all % improvements over baseline, so +EDP% is good result here
+SF EDP range: 7.0012% to 31.739%
+SF IPS range: 0.0% to 0.0%
+VF EDP range: 16.485% to 33.3026%
+VF IPS range: 0.0% to 10.184%
+# Across every program, what is the maximum temperature we see per program (so coldest max temp is 77, hottest max temp is 80)
+SF Max temperature range: 77.03 to 80.65 celsius

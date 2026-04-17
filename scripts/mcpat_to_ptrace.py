@@ -739,8 +739,8 @@ def main():
     )
     parser.add_argument(
         "--variable_frequency",
-        type=bool,
-        default=True,
+        type=str,
+        default="true",
         help="Allow taking the maximum TEI-aware frequency",
     )
     args = parser.parse_args()
@@ -815,6 +815,8 @@ def main():
     # Roughly topologically sorted nodes
     approx_sorted_nodes = ordered_nodes(topo, comp_to_nodes, global_adj)
 
+    is_variable_frequency = args.variable_frequency.lower() in ("true", "1", "yes", "enabled")
+
     all_block_heats, vf_pairs = calculate_all_heat(
         stats_df.copy(),
         request_spec,
@@ -827,7 +829,7 @@ def main():
         args.configs_hotspot,
         standard_voltages.copy(),
         flp_df.copy(),
-        args.variable_frequency,
+        is_variable_frequency,
         False,
     )
 

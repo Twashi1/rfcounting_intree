@@ -1,0 +1,140 @@
+# All stats are given as percentage increases
+# - EDP, lower is better
+# - Energy, lower is better
+# - IPS, higher is better
+# EDP@Constant, Energy@Constant - Measures difference between
+#   ETC:        Voltage: TEI-aware,  Frequency: Baseline, 3GHz
+#   Baseline:   Voltage: Baseline,   Frequency: Baseline, 3GHz
+# EDP@Potential, Energy@Potential- Measures difference between
+#   ETC:        Voltage: TEI-aware,  Frequency: TEI-aware
+#   Baseline:   Voltage: Baseline,   Frequency: Baseline, 3GHz
+# IPS@Conservative - Measures difference between
+#   ETC:        Frequency: Minimum between TEI-aware, and baseline 
+#   Baseline:   Frequency: Baseline, 3GHz 
+# IPS@Potential - Measures difference between
+#   ETC:        Frequency: TEI-aware (potential maximum)
+#   Baseline:   Frequency: Baseline, 3GHz
+# MaxFreq - Maximum frequency ever used in TEI-aware approach
+# AverageFreq - Average frequency used, weighted by execution time
+# MaxTemp - Maximum temperature ever used in TEI-aware approach
+# AverageTemp - Average temperature used, weighted by execution time
+Test name: gemm
+Energy@Potential: -31.7258%
+EDP@Potential: -31.7258%
+IPS@Potential: 0.0000%
+AverageFreq: 3.00
+MaxFreq: 3.70
+AverageTemp: 70.27
+MaxTemp: 79.40
+Test name: symm
+Energy@Potential: -31.5544%
+EDP@Potential: -31.5554%
+IPS@Potential: 0.0015%
+AverageFreq: 3.00
+MaxFreq: 3.60
+AverageTemp: 65.38
+MaxTemp: 80.62
+Test name: syrk
+Energy@Potential: -31.7390%
+EDP@Potential: -31.7390%
+IPS@Potential: 0.0000%
+AverageFreq: 3.00
+MaxFreq: 3.70
+AverageTemp: 71.57
+MaxTemp: 79.39
+Test name: gemver
+Energy@Potential: -18.3176%
+EDP@Potential: -22.5730%
+IPS@Potential: 5.4960%
+AverageFreq: 3.16
+MaxFreq: 3.80
+AverageTemp: 77.95
+MaxTemp: 78.99
+Test name: 2mm
+Energy@Potential: -31.5261%
+EDP@Potential: -31.5261%
+IPS@Potential: 0.0000%
+AverageFreq: 3.00
+MaxFreq: 3.70
+AverageTemp: 68.90
+MaxTemp: 79.24
+Test name: 3mm
+Energy@Potential: -7.9799%
+EDP@Potential: -16.4850%
+IPS@Potential: 10.1840%
+AverageFreq: 3.31
+MaxFreq: 3.80
+AverageTemp: 70.02
+MaxTemp: 79.24
+Test name: atax
+Energy@Potential: -31.6299%
+EDP@Potential: -31.6299%
+IPS@Potential: 0.0000%
+AverageFreq: 3.00
+MaxFreq: 3.10
+AverageTemp: 79.17
+MaxTemp: 79.21
+Test name: durbin
+Energy@Potential: -31.5969%
+EDP@Potential: -31.5969%
+IPS@Potential: 0.0000%
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 79.44
+MaxTemp: 79.44
+Test name: lu
+Energy@Potential: -31.8481%
+EDP@Potential: -33.3026%
+IPS@Potential: 2.1807%
+AverageFreq: 3.07
+MaxFreq: 3.60
+AverageTemp: 58.59
+MaxTemp: 79.44
+Test name: ludcmp
+Energy@Potential: -31.6582%
+EDP@Potential: -31.6651%
+IPS@Potential: 0.0101%
+AverageFreq: 3.00
+MaxFreq: 3.70
+AverageTemp: 58.52
+MaxTemp: 77.05
+Test name: covariance
+Energy@Potential: -31.5615%
+EDP@Potential: -31.5615%
+IPS@Potential: 0.0000%
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 67.95
+MaxTemp: 78.30
+Test name: floyd-warshall
+Energy@Potential: -31.6553%
+EDP@Potential: -31.6553%
+IPS@Potential: 0.0000%
+AverageFreq: 3.00
+MaxFreq: 3.60
+AverageTemp: 57.51
+MaxTemp: 78.69
+Test name: adi
+Energy@Potential: -31.5159%
+EDP@Potential: -31.5159%
+IPS@Potential: 0.0000%
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 56.39
+MaxTemp: 78.40
+Test name: jacobi-2d
+Energy@Potential: -31.7340%
+EDP@Potential: -31.7340%
+IPS@Potential: 0.0000%
+AverageFreq: 3.00
+MaxFreq: 3.60
+AverageTemp: 64.30
+MaxTemp: 77.04
+Test name: seidel-2d
+Energy@Potential: -31.4090%
+EDP@Potential: -31.4090%
+IPS@Potential: 0.0000%
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 56.43
+MaxTemp: 77.03
