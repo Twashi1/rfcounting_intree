@@ -128,6 +128,7 @@ def main():
     # 2. for any loop, we assume the DVS calling point occurs once/with constant value, so we can just move
     #   that point to the pre-header trivially, thus should be freuqency/loop count, or we just never assign
     #   a DVS calling point for a loop
+    # at the very least, it should always be an overestimation?
     df["dvs_calling_count"] = df["freq"].astype(int)
 
     df = df[

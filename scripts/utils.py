@@ -544,6 +544,8 @@ def tei_select_voltage(
     # Required voltage was too low, return smallest voltage
     final_voltage = voltage_levels[-1] if round_up else voltage_levels[0]
 
+    error("Couldn't select sufficient voltage to support frequency under temperature constraints")
+
     return final_voltage
 
 
@@ -583,12 +585,13 @@ def tei_select_vf_pairs(
     vf_pairs.append((initial_voltage, default_frequency))
 
     if allow_variable_frequency:
-        current_freq = maximum_frequency
+        current_freq = float(config[MCPAT_CFG_MODULE_NAME][MCPAT_FREQUENCY_LIMIT]) 
 
         # Try all frequencies
         while current_freq > default_frequency:
             info(f"Selecting alternative frequency: {current_freq}")
-            vf_pairs.append((initial_voltage, current_freq))
+            required_voltage = tei_select_voltage(config, temperature_celsius, current_freq, voltage_levels)
+            vf_pairs.append((required_voltage, current_freq))
             current_freq -= precision
 
     return vf_pairs

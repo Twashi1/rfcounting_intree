@@ -173,7 +173,7 @@ def get_hotspot_temp(
     pattern = re.compile(r"^\s*-sampling_intvl\s+[\d\.eE+-]+", re.MULTILINE)
 
     per_sample_execution_time = execution_time / sample_count
-    per_sample_epsilon = 0.0000001
+    per_sample_epsilon = 1e-9
 
     if not (per_sample_execution_time > per_sample_epsilon):
         # Just some epsilon value
