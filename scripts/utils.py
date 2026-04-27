@@ -806,6 +806,10 @@ def load_program_heats(heat_table: str) -> pd.DataFrame:
         "temp_max",
         "temp_area_weighted_mean",
         "cycle_count",
+        "execution_time",
+        "dvs_calling_count",
+        "frequency",
+        "voltage"
     ]
     df[float_columns] = df[float_columns].astype(float)
 

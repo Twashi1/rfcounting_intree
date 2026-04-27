@@ -3,6 +3,7 @@ import utils
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import numpy as np
 
 # Can set theme here
 sns.set_theme(style="whitegrid")
@@ -13,18 +14,63 @@ vfvv = utils.load_efficiency_stats("./results/vfvv_per_program.txt")
 def load_program_data(program_names, directory="block_heats"):
     results = {}
 
+    ESTIMATE_SWITCHING_COST = 0.5 * 1e-6 # 0.5 microseconds
+
     for program_name in program_names:
-        df = utils.load_program_heats_voltages(f"./{directory}/{program_name}_ProgramHeatVoltages.csv")
+        df = utils.load_program_heats(f"./{directory}/{program_name}_ProgramHeat.csv")
 
         total_dvfs = df["dvs_calling_count"].sum()
         total_execution_time = df["execution_time"].sum()
+        total_cost = total_dvfs * ESTIMATE_SWITCHING_COST
+        new_time = total_execution_time + total_cost
+        slowdown = (new_time - total_execution_time) / total_execution_time * 100
 
         results[program_name] = {
                 "dvfs_calling_count": total_dvfs,
-                "execution_time": total_execution_time
+                "execution_time": total_execution_time,
+                "dvfs_per_ms": total_dvfs / (total_execution_time * 1.0e3),
+                "performance_slowdown%": slowdown,
         }
 
     return results
+
+def get_median(a):
+    return np.median(a)
+
+def dict_to_latex_table(data, output_file, float_fmts):
+    # collect all stat keys
+    stats = set()
+    for v in data.values():
+        stats.update(v.keys())
+    stats = sorted(stats)
+
+    # begin LaTeX table
+    lines = []
+    lines.append(r"\begin{table}[htbp]")
+    lines.append(r"\centering")
+    lines.append(r"\begin{tabular}{l" + "r" * len(stats) + "}")
+    lines.append(r"\hline")
+    lines.append("Program & " + " & ".join(stats) + r" \\")
+    lines.append(r"\hline")
+
+    # rows
+    for program, vals in data.items():
+        row = [program]
+        for i, stat in enumerate(stats):
+            val = vals.get(stat, "")
+            if isinstance(val, float):
+                val = format(val, float_fmts[i])
+            row.append(str(val))
+        lines.append(" & ".join(row) + r" \\")
+
+    lines.append(r"\hline")
+    lines.append(r"\end{tabular}")
+    lines.append(r"\caption{Program Statistics}")
+    lines.append(r"\end{table}")
+
+    # write to file
+    with open(output_file, "w") as f:
+        f.write("\n".join(lines))
 
 def get_efficiency_stat_min_max(efficiency_stats, stat_name: str, flip: bool):
     stat_min = float("inf")
@@ -60,8 +106,18 @@ print(f"Average EDP: {sf_edp_avg}")
 
 program_names = list(sfvv.keys())
 sfvv_additional = load_program_data(program_names, "const_path_block_heats")
+vfvv_additional = load_program_data(program_names, "var_path_block_heats")
 
-print(sfvv_additional)
+dict_to_latex_table(sfvv_additional, "./results/sfvv_latex_table.txt", [".0f", ".3f", ".3f", ".2f"])
+dict_to_latex_table(vfvv_additional, "./results/vfvv_latex_table.txt", [".0f", ".3f", ".3f", ".2f"])
+
+dvfs_per_ms = []
+
+for program, stats in sfvv_additional.items():
+    dvfs_per_ms.append(stats["dvfs_per_ms"])
+
+median_dvfs_per_ms = np.median(dvfs_per_ms)
+print(f"Median DVFS frequency: {median_dvfs_per_ms} calls/ms")
 
 sf_edp_min, sf_edp_max = get_efficiency_stat_min_max(sfvv, "edp_constant", True) 
 vf_edp_min, vf_edp_max = get_efficiency_stat_min_max(vfvv, "edp_potential", True)

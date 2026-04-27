@@ -1,0 +1,25 @@
+\begin{table}[htbp]
+\centering
+\begin{tabular}{lrrrr}
+\hline
+Program & dvfs_calling_count & dvfs_per_ms & execution_time & performance_slowdown% \\
+\hline
+gemm & 2620 & 1.055 & 2.483 & 0.05 \\
+symm & 2019 & 0.359 & 5.619 & 0.02 \\
+syrk & 2319 & 1.278 & 1.814 & 0.06 \\
+gemver & 4183 & 58.520 & 0.071 & 2.93 \\
+2mm & 3123 & 0.444 & 7.034 & 0.02 \\
+3mm & 3723 & 0.395 & 9.416 & 0.02 \\
+atax & 2129 & 51.138 & 0.042 & 2.56 \\
+durbin & 1176 & 104.780 & 0.011 & 5.24 \\
+lu & 4514 & 0.150 & 30.036 & 0.01 \\
+ludcmp & 7058 & 0.238 & 29.601 & 0.01 \\
+covariance & 3121 & 0.822 & 3.798 & 0.04 \\
+floyd-warshall & 3318 & 0.187 & 17.757 & 0.01 \\
+adi & 1267 & 0.056 & 22.466 & 0.00 \\
+jacobi-2d & 1418 & 0.218 & 6.514 & 0.01 \\
+seidel-2d & 1767 & 0.079 & 22.309 & 0.00 \\
+\hline
+\end{tabular}
+\caption{Program Statistics}
+\end{table}

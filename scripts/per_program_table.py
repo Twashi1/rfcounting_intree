@@ -47,12 +47,6 @@ def main():
         default="./hotspot_files/ev6.flp",
         help="Hotspot floorplan",
     )
-    parser.add_argument(
-        "--additional_block",
-        type=str,
-        default="PerBlockAdditional.csv",
-        help="Additional block data for execution time",
-    )
     parser.add_argument("--stats", type=str, help="Per BB/path stats")
     parser.add_argument(
         "--module_index",
@@ -74,10 +68,6 @@ def main():
     cfg = utils.load_cfg(args.config_file)
     clock_frequency = (
         float(cfg[utils.MCPAT_CFG_MODULE_NAME][utils.MCPAT_CLOCK_RATE_MHZ]) * 1.0e6
-    )
-
-    block_additional = utils.load_block_additional(
-        args.additional_block, args.module_index
     )
 
     vf_pairs = utils.load_voltage_frequency(args.vf_pairs)
