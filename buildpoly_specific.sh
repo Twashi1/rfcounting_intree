@@ -33,7 +33,7 @@ SRC=$1
 ./llvm-build/bin/clang -O0 -fprofile-instr-generate \
   $INCLUDES -I"$POLY/$DIRNAME" \
   "$SRC" "$POLY/utilities/polybench.c" \
-  -no-pie \
+  -no-pie -lm \
   -o "$OBJ/$DIRNAME/$NAME.instr"
 
 # 4. Run to collect profile

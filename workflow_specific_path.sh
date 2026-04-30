@@ -2,7 +2,7 @@
 polybench_path=$1
 test_name=$(basename "$1" .c)
 
-NO_DELETE=false
+NO_DELETE=true
 VAR_FREQUENCY="false"
 
 # NOTE: excluding buildscript, assume already built

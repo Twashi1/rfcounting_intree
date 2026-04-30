@@ -182,7 +182,9 @@ def load_efficiency_stats(efficiency_stats: str) -> dict:
     program_results = {}
 
     program_name_pattern = re.compile(r"^\s*Test name:\s+(.+)$")
-    stat_value_pattern = re.compile(r"^(.*?):\s*([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)%?$")
+    stat_value_pattern = re.compile(
+        r"^(.*?):\s*([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)%?$"
+    )
 
     with open(efficiency_stats, "r") as f:
         current_program = None
@@ -532,7 +534,7 @@ def tei_select_voltage(
 
     if round_up:
         for v in voltage_levels:
-            if v >= (required_voltage - epsilon):
+            if v >= (required_voltage + epsilon):
                 return v
     else:
         for v in reversed(voltage_levels):
@@ -544,9 +546,12 @@ def tei_select_voltage(
     # Required voltage was too low, return smallest voltage
     final_voltage = voltage_levels[-1] if round_up else voltage_levels[0]
 
-    error("Couldn't select sufficient voltage to support frequency under temperature constraints")
+    # TODO: in such case, we should not allow this frequency level to be selected; return none
+    error(
+        "Couldn't select sufficient voltage to support frequency under temperature constraints"
+    )
 
-    return final_voltage
+    return None 
 
 
 def tei_select_vf_pairs(
@@ -585,12 +590,19 @@ def tei_select_vf_pairs(
     vf_pairs.append((initial_voltage, default_frequency))
 
     if allow_variable_frequency:
-        current_freq = float(config[MCPAT_CFG_MODULE_NAME][MCPAT_FREQUENCY_LIMIT]) 
+        current_freq = float(config[MCPAT_CFG_MODULE_NAME][MCPAT_FREQUENCY_LIMIT])
 
         # Try all frequencies
         while current_freq > default_frequency:
             info(f"Selecting alternative frequency: {current_freq}")
-            required_voltage = tei_select_voltage(config, temperature_celsius, current_freq, voltage_levels)
+            required_voltage = tei_select_voltage(
+                config, temperature_celsius, current_freq, voltage_levels
+            )
+
+            # Could not select a voltage that supported this frequency
+            if required_voltage is None:
+                continue
+
             vf_pairs.append((required_voltage, current_freq))
             current_freq -= precision
 
@@ -809,7 +821,7 @@ def load_program_heats(heat_table: str) -> pd.DataFrame:
         "execution_time",
         "dvs_calling_count",
         "frequency",
-        "voltage"
+        "voltage",
     ]
     df[float_columns] = df[float_columns].astype(float)
 
@@ -1305,7 +1317,7 @@ def get_stats_df_gem5_run(input_path: str) -> pd.DataFrame:
     block_pattern = re.compile(
         r"-+\s*Begin Simulation Statistics\s*-+(.*?)"
         r"-+\s*End Simulation Statistics\s*-+",
-        re.DOTALL | re.IGNORECASE
+        re.DOTALL | re.IGNORECASE,
     )
 
     # generic stat line: <name><whitespace><value><whitespace><anything>
@@ -1315,7 +1327,7 @@ def get_stats_df_gem5_run(input_path: str) -> pd.DataFrame:
         (?P<value>[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)
         \s+.*$
         """,
-        re.MULTILINE | re.VERBOSE
+        re.MULTILINE | re.VERBOSE,
     )
 
     with open(input_path, "r") as f:
@@ -1334,14 +1346,26 @@ def get_stats_df_gem5_run(input_path: str) -> pd.DataFrame:
 
         # Mapping gem5 data columns to our columns
         # Some of these are additional stats from our DVFS simulator
-        renamed_stats[DVFS_CALL_COUNT] = int(stats.get("board.processor.cores.core.dvfsCallCount", 0))
-        renamed_stats[AVERAGE_VOLTAGE] = float(stats.get("board.processor.cores.core.averageVoltage", 0))
-        renamed_stats[AVERAGE_FREQUENCY] = float(stats.get("board.processor.cores.core.averageFrequency", 0))
+        renamed_stats[DVFS_CALL_COUNT] = int(
+            stats.get("board.processor.cores.core.dvfsCallCount", 0)
+        )
+        renamed_stats[AVERAGE_VOLTAGE] = float(
+            stats.get("board.processor.cores.core.averageVoltage", 0)
+        )
+        renamed_stats[AVERAGE_FREQUENCY] = float(
+            stats.get("board.processor.cores.core.averageFrequency", 0)
+        )
         renamed_stats[IPC] = float(stats.get("board.processor.cores.core.ipc", 0))
 
-        renamed_stats[CYCLE_COUNT] = int(stats.get("board.processor.cores.core.numCycles", 0))
-        renamed_stats[IDLE_CYCLES] = int(stats.get("board.processor.cores.core.idleCycles", 0))
-        renamed_stats[INSTR_COUNT] = int(stats.get("board.processor.cores.core.commitStats0.numInsts", 0))
+        renamed_stats[CYCLE_COUNT] = int(
+            stats.get("board.processor.cores.core.numCycles", 0)
+        )
+        renamed_stats[IDLE_CYCLES] = int(
+            stats.get("board.processor.cores.core.idleCycles", 0)
+        )
+        renamed_stats[INSTR_COUNT] = int(
+            stats.get("board.processor.cores.core.commitStats0.numInsts", 0)
+        )
         renamed_stats[INT_INSTR_COUNT] = int(
             stats.get("board.processor.cores.core.commitStats0.numIntInsts", 0)
         )
@@ -1354,13 +1378,27 @@ def get_stats_df_gem5_run(input_path: str) -> pd.DataFrame:
         renamed_stats[BRANCH_MISPREDICTIONS] = int(
             stats.get("board.processor.cores.core.commit.branchMispredicts", 0)
         )
-        renamed_stats[LOADS] = int(stats.get("board.processor.cores.core.commitStats0.numLoadInsts", 0))
-        renamed_stats[STORES] = int(stats.get("board.processor.cores.core.commitStats0.numStoreInsts", 0))
-        renamed_stats[ROB_READS] = int(stats.get("board.processor.cores.core.rob.reads", 0))
-        renamed_stats[ROB_WRITES] = int(stats.get("board.processor.cores.core.rob.writes", 0))
-        renamed_stats[RENAME_READS] = int(stats.get("board.processor.cores.core.rename.lookups", 0))
-        renamed_stats[RENAME_WRITES] = int(stats.get("board.processor.cores.core.rename.renamedOperands", 0))
-        renamed_stats[FP_RENAME_READS] = int(stats.get("board.processor.cores.core.rename.fpLookups", 0))
+        renamed_stats[LOADS] = int(
+            stats.get("board.processor.cores.core.commitStats0.numLoadInsts", 0)
+        )
+        renamed_stats[STORES] = int(
+            stats.get("board.processor.cores.core.commitStats0.numStoreInsts", 0)
+        )
+        renamed_stats[ROB_READS] = int(
+            stats.get("board.processor.cores.core.rob.reads", 0)
+        )
+        renamed_stats[ROB_WRITES] = int(
+            stats.get("board.processor.cores.core.rob.writes", 0)
+        )
+        renamed_stats[RENAME_READS] = int(
+            stats.get("board.processor.cores.core.rename.lookups", 0)
+        )
+        renamed_stats[RENAME_WRITES] = int(
+            stats.get("board.processor.cores.core.rename.renamedOperands", 0)
+        )
+        renamed_stats[FP_RENAME_READS] = int(
+            stats.get("board.processor.cores.core.rename.fpLookups", 0)
+        )
         renamed_stats[INST_WINDOW_READS] = int(
             stats.get("board.processor.cores.core.intInstQueueReads", 0)
         ) + int(stats.get("board.processor.cores.core.fpInstQueueReads", 0))
@@ -1370,7 +1408,9 @@ def get_stats_df_gem5_run(input_path: str) -> pd.DataFrame:
         renamed_stats[INST_WINDOW_WAKEUP_ACCESSES] = int(
             stats.get("board.processor.cores.core.intInstQueueWakeupAccesses", 0)
         ) + int(stats.get("board.processor.cores.core.fpInstQueueWakeupAccesses", 0))
-        renamed_stats[FP_INST_WINDOW_READS] = int(stats.get("board.processor.cores.core.fpInstQueueReads", 0))
+        renamed_stats[FP_INST_WINDOW_READS] = int(
+            stats.get("board.processor.cores.core.fpInstQueueReads", 0)
+        )
         renamed_stats[FP_INST_WINDOW_WRITES] = int(
             stats.get("board.processor.cores.core.fpInstQueueWrites", 0)
         )
@@ -1390,38 +1430,68 @@ def get_stats_df_gem5_run(input_path: str) -> pd.DataFrame:
         renamed_stats[FLOAT_REGFILE_WRITES] = int(
             stats.get("board.processor.cores.core.executeStats0.numFpRegWrites", 0)
         )
-        renamed_stats[FUNCTION_CALLS] = int(stats.get("board.processor.cores.core.commit.functionCalls", 0))
+        renamed_stats[FUNCTION_CALLS] = int(
+            stats.get("board.processor.cores.core.commit.functionCalls", 0)
+        )
         renamed_stats[CONTEXT_SWITCHES] = int(
-            stats.get("board.processor.cores.core.commitStats0.committedControl::IsReturn", 0)
-        ) + int(stats.get("board.processor.cores.core.commitStats0.committedControl::IsCall", 0))
-
-        # TODO: is this wrong?
-        renamed_stats[MUL_ACCESS] = (
-            int(stats.get("board.processor.cores.core.commitStats0.committedInstType::IntMult", 0))
-            + int(
-                stats.get("board.processor.cores.core.commitStats0.committedInstType::FloatMult", 0)
+            stats.get(
+                "board.processor.cores.core.commitStats0.committedControl::IsReturn", 0
             )
-            + int(
-                stats.get("board.processor.cores.core.commitStats0.committedInstType::SimdMult", 0)
-            )
-            + int(
-                stats.get(
-                    "board.processor.cores.core.commitStats0.committedInstType::SimdFloatMult", 0
-                    )
+        ) + int(
+            stats.get(
+                "board.processor.cores.core.commitStats0.committedControl::IsCall", 0
             )
         )
 
-        renamed_stats[FP_ACCESS] = int(stats.get("board.processor.cores.core.fpAluAccesses", 0))
-        renamed_stats[IALU_ACCESS] = int(stats.get("board.processor.cores.core.intAluAccesses", 0))
+        # TODO: is this wrong?
+        renamed_stats[MUL_ACCESS] = (
+            int(
+                stats.get(
+                    "board.processor.cores.core.commitStats0.committedInstType::IntMult",
+                    0,
+                )
+            )
+            + int(
+                stats.get(
+                    "board.processor.cores.core.commitStats0.committedInstType::FloatMult",
+                    0,
+                )
+            )
+            + int(
+                stats.get(
+                    "board.processor.cores.core.commitStats0.committedInstType::SimdMult",
+                    0,
+                )
+            )
+            + int(
+                stats.get(
+                    "board.processor.cores.core.commitStats0.committedInstType::SimdFloatMult",
+                    0,
+                )
+            )
+        )
+
+        renamed_stats[FP_ACCESS] = int(
+            stats.get("board.processor.cores.core.fpAluAccesses", 0)
+        )
+        renamed_stats[IALU_ACCESS] = int(
+            stats.get("board.processor.cores.core.intAluAccesses", 0)
+        )
 
         renamed_stats[CDB_ALU_ACCESSES] = renamed_stats[IALU_ACCESS]
         renamed_stats[CDB_FP_ACCESSES] = renamed_stats[FP_ACCESS]
         renamed_stats[CDB_MUL_ACCESSES] = renamed_stats[MUL_ACCESS]
 
-        renamed_stats[BTB_READS] = int(stats.get("board.processor.cores.core.branchPred.BTBLookups", 0))
-        renamed_stats[BTB_WRITES] = int(stats.get("board.processor.cores.core.branchPred.BTBUpdates", 0))
+        renamed_stats[BTB_READS] = int(
+            stats.get("board.processor.cores.core.branchPred.BTBLookups", 0)
+        )
+        renamed_stats[BTB_WRITES] = int(
+            stats.get("board.processor.cores.core.branchPred.BTBUpdates", 0)
+        )
 
-        renamed_stats[COMMITTED_INSTR] = int(stats.get("board.processor.cores.core.commitStats0.numInsts", 0))
+        renamed_stats[COMMITTED_INSTR] = int(
+            stats.get("board.processor.cores.core.commitStats0.numInsts", 0)
+        )
         renamed_stats[COMMITTED_INT_INSTR] = int(
             stats.get("board.processor.cores.core.commitStats0.numIntInsts", 0)
         )
@@ -1429,23 +1499,39 @@ def get_stats_df_gem5_run(input_path: str) -> pd.DataFrame:
             stats.get("board.processor.cores.core.commitStats0.numFpInsts", 0)
         )
 
-        renamed_stats[FP_RENAME_WRITES] = int(stats.get("board.processor.cores.core.rename.fpLookups", 0)) / 2
+        renamed_stats[FP_RENAME_WRITES] = (
+            int(stats.get("board.processor.cores.core.rename.fpLookups", 0)) / 2
+        )
 
-        renamed_stats[BUSY_CYCLES] = renamed_stats[CYCLE_COUNT] - renamed_stats[IDLE_CYCLES]
+        renamed_stats[BUSY_CYCLES] = (
+            renamed_stats[CYCLE_COUNT] - renamed_stats[IDLE_CYCLES]
+        )
 
-        renamed_stats[L1D_HITS] = int(stats.get("board.cache_hierarchy.l1dcaches.ReadReq.hits::total", 0))
-        renamed_stats[L1D_MISS] = int(stats.get("board.cache_hierarchy.l1dcaches.ReadReq.misses::total", 0))
+        renamed_stats[L1D_HITS] = int(
+            stats.get("board.cache_hierarchy.l1dcaches.ReadReq.hits::total", 0)
+        )
+        renamed_stats[L1D_MISS] = int(
+            stats.get("board.cache_hierarchy.l1dcaches.ReadReq.misses::total", 0)
+        )
 
-        renamed_stats[L1I_HITS] = int(stats.get("board.cache_hierarchy.l1icaches.ReadReq.hits::total", 0))
-        renamed_stats[L1I_MISS] = int(stats.get("board.cache_hierarchy.l1icaches.ReadReq.misses::total", 0))
+        renamed_stats[L1I_HITS] = int(
+            stats.get("board.cache_hierarchy.l1icaches.ReadReq.hits::total", 0)
+        )
+        renamed_stats[L1I_MISS] = int(
+            stats.get("board.cache_hierarchy.l1icaches.ReadReq.misses::total", 0)
+        )
 
         renamed_stats[L2_HITS] = int(
             stats.get("board.cache_hierarchy.l2caches.ReadExReq.hits::total", 0)
-        ) + int(stats.get("board.cache_hierarchy.l2caches.ReadSharedReq.hits::total", 0))
+        ) + int(
+            stats.get("board.cache_hierarchy.l2caches.ReadSharedReq.hits::total", 0)
+        )
 
         renamed_stats[L2_MISS] = int(
             stats.get("board.cache_hierarchy.l2caches.ReadExReq.misses::total", 0)
-        ) + int(stats.get("board.cache_hierarchy.l2caches.ReadSharedReq.misses::total", 0))
+        ) + int(
+            stats.get("board.cache_hierarchy.l2caches.ReadSharedReq.misses::total", 0)
+        )
 
         rows.append(renamed_stats)
 
@@ -1499,10 +1585,19 @@ def create_mcpat_input_xml_etc(
     voltage_levels = load_voltage_levels_from_cfg(input_cfg)
     vdd = f"{voltage_levels[voltage_level_id]:.2f}"
 
-    create_mcpat_input_xml(input_path, output_path, input_stats, input_cfg, vdd, frequency * 1.0e3) 
+    create_mcpat_input_xml(
+        input_path, output_path, input_stats, input_cfg, vdd, frequency * 1.0e3
+    )
 
 
-def create_mcpat_input_xml(input_path: str, output_path: str, input_stats: dict, input_cfg: configparser.ConfigParser, vdd: float, frequency_mhz: float) -> None:
+def create_mcpat_input_xml(
+    input_path: str,
+    output_path: str,
+    input_stats: dict,
+    input_cfg: configparser.ConfigParser,
+    vdd: float,
+    frequency_mhz: float,
+) -> None:
     tree = ET.parse(input_path)
 
     frequency = frequency_mhz
@@ -2047,7 +2142,10 @@ def load_standard_stat_file(path: str) -> pd.DataFrame:
 
     return df
 
-def create_unified_program_stats(efficiency_stats: dict, output_csv: str) -> pd.DataFrame:
+
+def create_unified_program_stats(
+    efficiency_stats: dict, output_csv: str
+) -> pd.DataFrame:
     df_dict = {
         "program_name": [],
         "edp_percent": [],

@@ -1,69 +1,14 @@
 # Program/workflow documentation
 
-## Shell scripts
+## Important files 
 
 - `buildscript.sh` - Build LLVM-project
-- `buildpoly_specific.sh <polybench source>` - Build and run a specific PolyBench test.
-    - Example input: `./buildpoly_specific.sh ./PolyBenchC-4.2.1/linear-algebra/blas/gemm/gemm.c`
-- `convert_stat_files.sh <output_filename>` - Convert output filenames to standard stats with the given output name
-    - Example input: `./convert_stat_files.sh gemm`
-    - Note this will take an average over basic blocks to compute per-basic-block stats
-    - And it will take each program path (assumed DVS calling point), and compute stats per path
-    - If you want McPAT inputs per basic-block, follow procedure in `workflow_specific.sh`
-- `run_mcpat_all.sh <input_folder>` - Runs a folder of McPAT XML inputs through McPAT to get resulting power
-    - Example input: `./run_mcpat_all.sh ./mcpat_inputs/gemm`
-    - Generates the corresponding output folder at `./mcpat_out/gemm`
-- `workflow_specific.sh <polybench source>` - Performs (almost) the full workflow, from a PolyBench source, to analysis, stat estimation, McPAT power trace generation, and thermal trace estimation
-    - Example input: `./workflow_specific.sh ./PolyBenchC-4.2.1/linear-algebra/blas/gemm/gemm.c`
-    - Reads from `VoltageLevels.csv` to determine the voltage level to assume for each basic block (expected either low, med, or high)
+- `run_workflow_all_polybench_path.sh` - Runs a list of PolyBench benchmarks, selecting optimal voltage-frequency configurations and calculating the improved efficiency of these configurations. Primary output is `efficiencyStats.txt`, however additional temperature and DVFS calling counts can be found in the `./block_heats` directory
+    - Within this file are the variables `VAR_FREQUENCY` to switch between targetting stable-frequency operation or variable-frequency operation
+    - `NO_DELETE` prevents deletion of the McPAT power traces, which consumes the majority of processing time
+- `./scripts/configs.cfg` - Main configuration options; voltage levels, frequency range, assumed temperatures, tech node size
 
-
-## General workflow
-
-Generally, build the LLVM analysis pass with `buildscript.sh`. From there, simply use `workflow_specific.sh` to run everything from start to finish for some particular PolyBench source.
-
-0. Build the LLVM analysis pass with `buildscript.sh`
-1. Statistics are generated using `buildpoly_specific.sh <polybench source>`
-2. Missing statistics are estimated using `scripts/create_stats.py` (no good automated workflow yet)
-3. Filled in statistics (notated by having the appended `_STD`, usually present in `stats`) are then converted to PolyBench XML input by `scripts/create_mcpat_xxx.py`. This will depend on converting a single stat instance, or stats per basic block/DVS calling point
-4. Feed the crafted McPAT input stats into McPAT to get power traces, using `run_mcpat_all.sh`
-5. Generate temperature traces by using CFG information, power traces, execution time, using `scripts/mcpat_to_ptrace.py`. This generated `HeatData.csv`
-6. Final heat data per block is transformed into max/mean temperatures across core units by `scripts/per_program_table.py`. Finally generates `ProgramHeat.csv`, prefixed by program name
-
-Note this is not the extent of the planned workflow, as some pre-processing and post-processing stages are still planned.
-- Detecting and breaking up large DVS loop
-- Insertion of DVS instructions based on heat, aiming to maximise TEI and minimise SHEs
-- Automated testing using Gem5 to validate accuracy of temperature estimates, power efficiency benefits, etc.
-
-## Statistics
-
-Breakdown of the column names of various statistics the program collects.
-
-### Getting statistics
-
-Running `buildpoly_specific.sh <source file>` to build a Polybench test. E.g. `./buildpoly_specific.sh ./PolyBenchC-4.2.1/linear-algebra/blas/gemm/gemm.c`. Will output the following files
-- `PathBlocks.csv`, a breakdown of the stats per basic block of a given module and path
-- `MBB_stats.csv`, stats per machine-basic block
-- `CFG.csv`, the control-flow graph of basic blocks, including connections between functions
-- `DAG.csv`, the directed acylic graph representing strongly connected components of the CFG. Used to generate approximately topologically sorted order for basic blocks
-- `PerBlockAdditional.csv`, additional per block data, such as execution time, the component in the DAG
-- `TopoComp.csv`, topologically sorted components of the DAG
-- `HeatData.csv`, per-unit heat in kelvin, per basic block
-- `VoltageLevels.csv`, the voltage to assign to each basic block in runs of estimating thermal traces
-
-### Locators and identifiers
-
-- `module_name`: Name of the module being analysed (usually the file)
-- `function_name`: The function being analysed
-- `block_name`: The specific basic block being analysed
-
-#### Specific to subgraph/path analysis
-
-- `path_index`: The index of the subgraph/path being analysed
-- `is_entry`: Whether this block is an entry block for the given `path_index`
-- `is_exit`: Whether this block is an exit block for the given `path_index`
-
-### Required stats
+## Required stats
 
 - `cycle_count`: Total number of clock cycles executed
 - `instr_count`: Total number of instructions executed
@@ -83,7 +28,7 @@ Running `buildpoly_specific.sh <source file>` to build a Polybench test. E.g. `.
 - `fp_access`: Floating point unit accesses
 - `ialu_access`: Integer ALU accesses
 
-### Estimated stats
+## Estimated stats
 
 These stats can be estimated from others (although likely poorly).
 
@@ -110,8 +55,6 @@ These stats can be estimated from others (although likely poorly).
 - `cdb_fp_accesses`: ? (assumed `fp_access`)
 - `btb_reads`: ? (assumed `instr_count`)
 - `btb_writes`: ? (assumed 0)
-
-## CSV Files
 
 
 

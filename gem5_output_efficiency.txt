@@ -1,7 +1,0 @@
-[gem5_gemm] EDP change: nan% (lower better), IPS change: -52.7209% (higher better)
-[gem5_gemm] EDP change: 195.4297% (lower better), IPS change: -52.7209% (higher better)
-[gem5_gemm] EDP change: 195.4297% (lower better), IPS change: -52.7209% (higher better)
-[gem5_gemm] EDP change: 15.4461% (lower better), IPS change: -10.8350% (higher better)
-[gem5_gemm] EDP change: 15.4461% (lower better), IPS change: -10.8350% (higher better)
-[gem5_gemm] EDP change: 22.9103% (lower better), IPS change: -13.7462% (higher better)
-[gem5_gemm] EDP change: 107.7138% (lower better), IPS change: -31.6160% (higher better)
