@@ -245,8 +245,11 @@ def ordered_nodes(scc_topo: list, comp_to_nodes: dict, adj: dict) -> list:
         # TODO: not necessarily in order of index/id value, so should sort?
         for n in nodes:
             if n not in seen:
+                utils.warn(f"Approximately sorting node: {n}")
                 topo_sorted.append(n)
                 seen.add(n)
+
+    utils.info("Completed topological sort of nodes prepared for main workflow")
 
     return topo_sorted
 
@@ -400,12 +403,10 @@ def estimate_block_heat(
     # Get all parents
     prevs = parents[node]
     # Get heat data of all parents
-    parent_heats = {
-        parent: heat_data[parent] for parent in prevs if parent in heat_data
-    }
+    parent_heats = {p: heat_data[p] for p in prevs if p in heat_data}
 
     utils.info(
-        f"Block id: {node=} has {len(parent_heats)} parents with valid heat dependencies, with {prevs} total dependencies"
+        f"Block id: {node=} has {len(parent_heats)} parents with valid heat dependencies, with predecessor nodes: {prevs}"
     )
 
     # Get the new heat
@@ -538,7 +539,7 @@ def calculate_all_heat(
         if node not in nodes_to_consider:
             continue
 
-        utils.error(f"Considering node #### {node} ####")
+        utils.info(f"Considering node #### {node} ####")
 
         # In the path-based case, this node is a subgraph index
         #   so instead; we want to take the stats of the node that is the subgraph root
@@ -813,9 +814,15 @@ def main():
         global_adj[row["start_block_id"]].append(row["exit_block_id"])
 
     # Roughly topologically sorted nodes
-    approx_sorted_nodes = ordered_nodes(topo, comp_to_nodes, global_adj)
+    # approx_sorted_nodes = ordered_nodes(topo, comp_to_nodes, global_adj)
+    approx_sorted_nodes = topo
 
-    is_variable_frequency = args.variable_frequency.lower() in ("true", "1", "yes", "enabled")
+    is_variable_frequency = args.variable_frequency.lower() in (
+        "true",
+        "1",
+        "yes",
+        "enabled",
+    )
 
     all_block_heats, vf_pairs = calculate_all_heat(
         stats_df.copy(),

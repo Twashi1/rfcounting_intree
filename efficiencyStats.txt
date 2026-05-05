@@ -1,0 +1,213 @@
+
+# All stats are given as percentage increases
+# - EDP, lower is better
+# - Energy, lower is better
+# - IPS, higher is better
+# EDP@Constant, Energy@Constant - Measures difference between
+#   ETC:        Voltage: TEI-aware,  Frequency: Baseline, 3GHz
+#   Baseline:   Voltage: Baseline,   Frequency: Baseline, 3GHz
+# EDP@Potential, Energy@Potential- Measures difference between
+#   ETC:        Voltage: TEI-aware,  Frequency: TEI-aware
+#   Baseline:   Voltage: Baseline,   Frequency: Baseline, 3GHz
+# IPS@Conservative - Measures difference between
+#   ETC:        Frequency: Minimum between TEI-aware, and baseline 
+#   Baseline:   Frequency: Baseline, 3GHz 
+# IPS@Potential - Measures difference between
+#   ETC:        Frequency: TEI-aware (potential maximum)
+#   Baseline:   Frequency: Baseline, 3GHz
+# MaxFreq - Maximum frequency ever used in TEI-aware approach
+# AverageFreq - Average frequency used, weighted by execution time
+# MaxTemp - Maximum temperature ever used in TEI-aware approach
+# AverageTemp - Average temperature used, weighted by execution time
+Test name: gemm
+Energy@Constant: -21.8802%
+EDP@Constant: -21.8802%
+IPS@Conservative: -0.0000%
+EDP@ETCValue: 2.414531
+IPS@ETCValue: 869104202.350756
+EDP@BaseValue: 3.090804
+IPS@BaseValue: 869104203.054184
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 70.25
+MaxTemp: 83.35
+Test name: symm
+Energy@Constant: -21.7090%
+EDP@Constant: -21.7090%
+IPS@Conservative: 0.0000%
+EDP@ETCValue: 11.721706
+IPS@ETCValue: 644358036.875387
+EDP@BaseValue: 14.971971
+IPS@BaseValue: 644358036.599659
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 65.34
+MaxTemp: 80.66
+Test name: syrk
+Energy@Constant: -21.8729%
+EDP@Constant: -21.8729%
+IPS@Conservative: -0.0000%
+EDP@ETCValue: 1.268310
+IPS@ETCValue: 803700080.346176
+EDP@BaseValue: 1.623394
+IPS@BaseValue: 803700080.780380
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 71.54
+MaxTemp: 81.45
+Test name: gemver
+Energy@Constant: -27.5811%
+EDP@Constant: -27.5811%
+IPS@Conservative: -6.0522%
+EDP@ETCValue: 0.000706
+IPS@ETCValue: 841161218.466559
+EDP@BaseValue: 0.000974
+IPS@BaseValue: 895350021.656970
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 79.04
+MaxTemp: 81.45
+Test name: 2mm
+Energy@Constant: -14.1656%
+EDP@Constant: -14.1656%
+IPS@Conservative: -24.1081%
+EDP@ETCValue: 0.000215
+IPS@ETCValue: 766677272.464392
+EDP@BaseValue: 0.000251
+IPS@BaseValue: 1010223342.015602
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 76.67
+MaxTemp: 81.45
+Test name: 3mm
+Energy@Constant: -17.4015%
+EDP@Constant: -17.4015%
+IPS@Conservative: -21.9065%
+EDP@ETCValue: 0.000206
+IPS@ETCValue: 783643372.801394
+EDP@BaseValue: 0.000250
+IPS@BaseValue: 1003468562.420399
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 77.36
+MaxTemp: 81.45
+Test name: atax
+Energy@Constant: -21.7538%
+EDP@Constant: -21.7538%
+IPS@Conservative: -0.0000%
+EDP@ETCValue: 0.000661
+IPS@ETCValue: 848747327.792835
+EDP@BaseValue: 0.000845
+IPS@BaseValue: 848747362.580250
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 78.44
+MaxTemp: 79.21
+Test name: durbin
+Energy@Constant: -21.7323%
+EDP@Constant: -21.7323%
+IPS@Conservative: -0.0000%
+EDP@ETCValue: 0.000048
+IPS@ETCValue: 779194183.763196
+EDP@BaseValue: 0.000062
+IPS@BaseValue: 779194221.913755
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 78.79
+MaxTemp: 79.44
+Test name: lu
+Energy@Constant: -28.3252%
+EDP@Constant: -28.3252%
+IPS@Conservative: -0.0000%
+EDP@ETCValue: 319.469486
+IPS@ETCValue: 794903838.394738
+EDP@BaseValue: 445.721012
+IPS@BaseValue: 794903838.416664
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 58.26
+MaxTemp: 79.44
+Test name: ludcmp
+Energy@Constant: -28.4914%
+EDP@Constant: -28.4914%
+IPS@Conservative: -0.0000%
+EDP@ETCValue: 305.541722
+IPS@ETCValue: 762003602.500559
+EDP@BaseValue: 427.279552
+IPS@BaseValue: 762003602.506506
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 58.32
+MaxTemp: 79.21
+Test name: correlation
+Energy@Constant: -31.5478%
+EDP@Constant: -31.5478%
+IPS@Conservative: 0.0000%
+EDP@ETCValue: 4.879791
+IPS@ETCValue: 733180174.800769
+EDP@BaseValue: 7.128760
+IPS@BaseValue: 733180174.736120
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 68.34
+MaxTemp: 83.95
+Test name: covariance
+Energy@Constant: -31.5615%
+EDP@Constant: -31.5615%
+IPS@Conservative: 0.0000%
+EDP@ETCValue: 4.833831
+IPS@ETCValue: 733708179.003519
+EDP@BaseValue: 7.063025
+IPS@BaseValue: 733708178.694450
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 68.25
+MaxTemp: 83.95
+Test name: floyd-warshall
+Energy@Constant: -21.7691%
+EDP@Constant: -21.7691%
+IPS@Conservative: -0.0000%
+EDP@ETCValue: 141.732610
+IPS@ETCValue: 1462134146.756947
+EDP@BaseValue: 181.172223
+IPS@BaseValue: 1462134147.345149
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 57.46
+MaxTemp: 78.69
+Test name: adi
+Energy@Constant: -21.6772%
+EDP@Constant: -21.6772%
+IPS@Conservative: 0.0000%
+EDP@ETCValue: 180.761073
+IPS@ETCValue: 577241248.138605
+EDP@BaseValue: 230.789764
+IPS@BaseValue: 577241248.025823
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 56.39
+MaxTemp: 78.40
+Test name: jacobi-2d
+Energy@Constant: -21.8268%
+EDP@Constant: -21.8268%
+IPS@Conservative: -0.0000%
+EDP@ETCValue: 16.152216
+IPS@ETCValue: 773558809.939504
+EDP@BaseValue: 20.662097
+IPS@BaseValue: 773558809.992552
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 64.26
+MaxTemp: 79.44
+Test name: seidel-2d
+Energy@Constant: -31.4037%
+EDP@Constant: -31.4037%
+IPS@Conservative: 0.0000%
+EDP@ETCValue: 160.253364
+IPS@ETCValue: 671650534.742799
+EDP@BaseValue: 233.618078
+IPS@BaseValue: 671650534.691288
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 56.42
+MaxTemp: 79.42

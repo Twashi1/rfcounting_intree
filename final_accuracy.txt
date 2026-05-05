@@ -1,0 +1,238 @@
+Program: 2mm
+Cycle error 128.64%
+Int error 60.20%
+Float error 100.00%
+Instr error 50.05%
+Rel Cycle error 11872804481
+Rel Int error -7500569142.00
+Rel Float error -10830570821.00
+Rel Instr error -5403091357.00
+Gem5 final heat:
+{'L2_left': 343.35, 'L2': 343.32, 'L2_right': 343.36, 'Icache': 343.4, 'Dcache': 343.52, 'Bpred_0': 343.4, 'Bpred_1': 343.41, 'Bpred_2': 343.44, 'DTB_0': 343.55, 'DTB_1': 343.54, 'DTB_2': 343.51, 'FPAdd_0': 343.48, 'FPAdd_1': 343.51, 'FPReg_0': 343.51, 'FPReg_1': 343.52, 'FPReg_2': 343.55, 'FPReg_3': 343.56, 'FPMul_0': 343.49, 'FPMul_1': 343.54, 'FPMap_0': 343.5, 'FPMap_1': 343.56, 'IntMap': 344.02, 'IntQ': 343.74, 'IntReg_0': 343.53, 'IntReg_1': 343.49, 'IntExec': 343.45, 'FPQ': 343.63, 'LdStQ': 343.91, 'ITB_0': 343.63, 'ITB_1': 343.61}
+Our final heat:
+{'L2_left': 337.49, 'L2': 337.46, 'L2_right': 337.49, 'Icache': 337.49, 'Dcache': 337.52, 'Bpred_0': 337.49, 'Bpred_1': 337.49, 'Bpred_2': 337.49, 'DTB_0': 337.52, 'DTB_1': 337.52, 'DTB_2': 337.51, 'FPAdd_0': 337.52, 'FPAdd_1': 337.52, 'FPReg_0': 337.51, 'FPReg_1': 337.52, 'FPReg_2': 337.52, 'FPReg_3': 337.52, 'FPMul_0': 337.51, 'FPMul_1': 337.52, 'FPMap_0': 337.47, 'FPMap_1': 337.48, 'IntMap': 337.53, 'IntQ': 337.54, 'IntReg_0': 337.55, 'IntReg_1': 337.55, 'IntExec': 337.52, 'FPQ': 337.52, 'LdStQ': 337.59, 'ITB_0': 337.53, 'ITB_1': 337.53}
+Max Temperature percent error: 1.87%
+Max Temperature objective error: 6.430000000000007
+Avg Temperature percent error: 1.75%
+Avg Temperature objective error: 6.020333333333326
+Program: 3mm
+Cycle error 647.19%
+Int error 39.81%
+Float error 100.00%
+Instr error 89.57%
+Rel Cycle error 26959915705
+Rel Int error 2117354358.00
+Rel Float error -4329705613.00
+Rel Instr error 3841544303.00
+Gem5 final heat:
+{'L2_left': 346.83, 'L2': 346.8, 'L2_right': 346.83, 'Icache': 346.87, 'Dcache': 346.97, 'Bpred_0': 346.87, 'Bpred_1': 346.87, 'Bpred_2': 346.91, 'DTB_0': 347.0, 'DTB_1': 346.99, 'DTB_2': 346.96, 'FPAdd_0': 346.94, 'FPAdd_1': 346.96, 'FPReg_0': 346.97, 'FPReg_1': 346.97, 'FPReg_2': 347.0, 'FPReg_3': 347.01, 'FPMul_0': 346.94, 'FPMul_1': 346.99, 'FPMap_0': 346.94, 'FPMap_1': 347.0, 'IntMap': 347.43, 'IntQ': 347.18, 'IntReg_0': 346.99, 'IntReg_1': 346.96, 'IntExec': 346.91, 'FPQ': 347.07, 'LdStQ': 347.34, 'ITB_0': 347.07, 'ITB_1': 347.06}
+Our final heat:
+{'L2_left': 334.36, 'L2': 334.34, 'L2_right': 334.37, 'Icache': 334.36, 'Dcache': 334.4, 'Bpred_0': 334.37, 'Bpred_1': 334.37, 'Bpred_2': 334.37, 'DTB_0': 334.4, 'DTB_1': 334.4, 'DTB_2': 334.39, 'FPAdd_0': 334.39, 'FPAdd_1': 334.4, 'FPReg_0': 334.39, 'FPReg_1': 334.39, 'FPReg_2': 334.4, 'FPReg_3': 334.4, 'FPMul_0': 334.39, 'FPMul_1': 334.39, 'FPMap_0': 334.35, 'FPMap_1': 334.36, 'IntMap': 334.41, 'IntQ': 334.42, 'IntReg_0': 334.43, 'IntReg_1': 334.43, 'IntExec': 334.4, 'FPQ': 334.4, 'LdStQ': 334.48, 'ITB_0': 334.41, 'ITB_1': 334.41}
+Max Temperature percent error: 3.73%
+Max Temperature objective error: 12.949999999999989
+Avg Temperature percent error: 3.63%
+Avg Temperature objective error: 12.59499999999997
+Program: adi
+Cycle error 4617.16%
+Int error 2995.42%
+Float error 100.00%
+Instr error 2346.72%
+Rel Cycle error 65969877211
+Rel Int error 11583467090.00
+Rel Float error -571141289.00
+Rel Instr error 12438397493.00
+Gem5 final heat:
+{'L2_left': 348.99, 'L2': 348.96, 'L2_right': 348.99, 'Icache': 349.0, 'Dcache': 349.04, 'Bpred_0': 349.0, 'Bpred_1': 349.0, 'Bpred_2': 349.01, 'DTB_0': 349.04, 'DTB_1': 349.04, 'DTB_2': 349.03, 'FPAdd_0': 349.04, 'FPAdd_1': 349.05, 'FPReg_0': 349.06, 'FPReg_1': 349.06, 'FPReg_2': 349.07, 'FPReg_3': 349.07, 'FPMul_0': 349.05, 'FPMul_1': 349.06, 'FPMap_0': 349.03, 'FPMap_1': 349.05, 'IntMap': 349.16, 'IntQ': 349.13, 'IntReg_0': 349.05, 'IntReg_1': 349.04, 'IntExec': 349.03, 'FPQ': 349.08, 'LdStQ': 349.11, 'ITB_0': 349.06, 'ITB_1': 349.06}
+Our final heat:
+{'L2_left': 329.62, 'L2': 329.59, 'L2_right': 329.62, 'Icache': 329.62, 'Dcache': 329.64, 'Bpred_0': 329.62, 'Bpred_1': 329.62, 'Bpred_2': 329.62, 'DTB_0': 329.64, 'DTB_1': 329.64, 'DTB_2': 329.64, 'FPAdd_0': 329.65, 'FPAdd_1': 329.65, 'FPReg_0': 329.65, 'FPReg_1': 329.65, 'FPReg_2': 329.65, 'FPReg_3': 329.65, 'FPMul_0': 329.65, 'FPMul_1': 329.65, 'FPMap_0': 329.61, 'FPMap_1': 329.61, 'IntMap': 329.66, 'IntQ': 329.67, 'IntReg_0': 329.68, 'IntReg_1': 329.68, 'IntExec': 329.65, 'FPQ': 329.65, 'LdStQ': 329.68, 'ITB_0': 329.65, 'ITB_1': 329.65}
+Max Temperature percent error: 5.58%
+Max Temperature objective error: 19.480000000000018
+Avg Temperature percent error: 5.56%
+Avg Temperature objective error: 19.403333333333364
+Program: atax
+Cycle error 157.85%
+Int error 64.57%
+Float error 100.00%
+Instr error 51.58%
+Rel Cycle error 76459108
+Rel Int error -33222715.00
+Rel Float error -127730866.00
+Rel Instr error -37638492.00
+Gem5 final heat:
+{'L2_left': 350.15, 'L2': 350.12, 'L2_right': 350.15, 'Icache': 350.18, 'Dcache': 350.33, 'Bpred_0': 350.21, 'Bpred_1': 350.22, 'Bpred_2': 350.26, 'DTB_0': 350.38, 'DTB_1': 350.36, 'DTB_2': 350.33, 'FPAdd_0': 350.38, 'FPAdd_1': 350.42, 'FPReg_0': 350.5, 'FPReg_1': 350.51, 'FPReg_2': 350.54, 'FPReg_3': 350.55, 'FPMul_0': 350.43, 'FPMul_1': 350.5, 'FPMap_0': 350.61, 'FPMap_1': 350.69, 'IntMap': 351.12, 'IntQ': 350.68, 'IntReg_0': 350.32, 'IntReg_1': 350.27, 'IntExec': 350.24, 'FPQ': 350.61, 'LdStQ': 350.76, 'ITB_0': 350.48, 'ITB_1': 350.44}
+Our final heat:
+{'L2_left': 350.08, 'L2': 350.06, 'L2_right': 350.08, 'Icache': 350.08, 'Dcache': 350.11, 'Bpred_0': 350.08, 'Bpred_1': 350.08, 'Bpred_2': 350.08, 'DTB_0': 350.11, 'DTB_1': 350.11, 'DTB_2': 350.11, 'FPAdd_0': 350.11, 'FPAdd_1': 350.11, 'FPReg_0': 350.11, 'FPReg_1': 350.11, 'FPReg_2': 350.11, 'FPReg_3': 350.11, 'FPMul_0': 350.1, 'FPMul_1': 350.11, 'FPMap_0': 350.07, 'FPMap_1': 350.08, 'IntMap': 350.13, 'IntQ': 350.14, 'IntReg_0': 350.15, 'IntReg_1': 350.15, 'IntExec': 350.12, 'FPQ': 350.11, 'LdStQ': 350.15, 'ITB_0': 350.12, 'ITB_1': 350.12}
+Max Temperature percent error: 0.28%
+Max Temperature objective error: 0.9700000000000273
+Avg Temperature percent error: 0.09%
+Avg Temperature objective error: 0.31833333333332803
+Program: covariance
+Cycle error 54.49%
+Int error 61.60%
+Float error 100.00%
+Instr error 50.03%
+Rel Cycle error 4018708621
+Rel Int error -4060389944.00
+Rel Float error -6081023848.00
+Rel Instr error -2789384555.00
+Gem5 final heat:
+{'L2_left': 344.54, 'L2': 344.51, 'L2_right': 344.54, 'Icache': 344.57, 'Dcache': 344.65, 'Bpred_0': 344.59, 'Bpred_1': 344.6, 'Bpred_2': 344.61, 'DTB_0': 344.68, 'DTB_1': 344.66, 'DTB_2': 344.64, 'FPAdd_0': 344.72, 'FPAdd_1': 344.74, 'FPReg_0': 344.7, 'FPReg_1': 344.71, 'FPReg_2': 344.73, 'FPReg_3': 344.74, 'FPMul_0': 344.72, 'FPMul_1': 344.75, 'FPMap_0': 344.65, 'FPMap_1': 344.69, 'IntMap': 344.99, 'IntQ': 344.94, 'IntReg_0': 344.75, 'IntReg_1': 344.72, 'IntExec': 344.62, 'FPQ': 344.81, 'LdStQ': 344.98, 'ITB_0': 344.75, 'ITB_1': 344.73}
+Our final heat:
+{'L2_left': 342.03, 'L2': 342.01, 'L2_right': 342.03, 'Icache': 342.03, 'Dcache': 342.06, 'Bpred_0': 342.03, 'Bpred_1': 342.03, 'Bpred_2': 342.03, 'DTB_0': 342.06, 'DTB_1': 342.06, 'DTB_2': 342.05, 'FPAdd_0': 342.05, 'FPAdd_1': 342.06, 'FPReg_0': 342.05, 'FPReg_1': 342.05, 'FPReg_2': 342.06, 'FPReg_3': 342.06, 'FPMul_0': 342.05, 'FPMul_1': 342.05, 'FPMap_0': 342.01, 'FPMap_1': 342.02, 'IntMap': 342.07, 'IntQ': 342.08, 'IntReg_0': 342.09, 'IntReg_1': 342.09, 'IntExec': 342.06, 'FPQ': 342.06, 'LdStQ': 342.14, 'ITB_0': 342.07, 'ITB_1': 342.07}
+Max Temperature percent error: 0.83%
+Max Temperature objective error: 2.8500000000000227
+Avg Temperature percent error: 0.77%
+Avg Temperature objective error: 2.6473333333333358
+Program: durbin
+Cycle error 319.03%
+Int error 71.82%
+Float error 100.00%
+Instr error 61.35%
+Rel Cycle error 25635122
+Rel Int error -19729263.00
+Rel Float error -27067962.00
+Rel Instr error -13879467.00
+Gem5 final heat:
+{'L2_left': 350.17, 'L2': 350.15, 'L2_right': 350.17, 'Icache': 350.22, 'Dcache': 350.45, 'Bpred_0': 350.21, 'Bpred_1': 350.22, 'Bpred_2': 350.27, 'DTB_0': 350.52, 'DTB_1': 350.49, 'DTB_2': 350.46, 'FPAdd_0': 350.38, 'FPAdd_1': 350.42, 'FPReg_0': 350.49, 'FPReg_1': 350.5, 'FPReg_2': 350.54, 'FPReg_3': 350.56, 'FPMul_0': 350.42, 'FPMul_1': 350.53, 'FPMap_0': 350.53, 'FPMap_1': 350.66, 'IntMap': 351.85, 'IntQ': 350.94, 'IntReg_0': 350.48, 'IntReg_1': 350.43, 'IntExec': 350.27, 'FPQ': 350.74, 'LdStQ': 351.69, 'ITB_0': 350.74, 'ITB_1': 350.7}
+Our final heat:
+{'L2_left': 350.16, 'L2': 350.14, 'L2_right': 350.16, 'Icache': 350.15, 'Dcache': 350.18, 'Bpred_0': 350.15, 'Bpred_1': 350.15, 'Bpred_2': 350.16, 'DTB_0': 350.18, 'DTB_1': 350.18, 'DTB_2': 350.18, 'FPAdd_0': 350.18, 'FPAdd_1': 350.18, 'FPReg_0': 350.18, 'FPReg_1': 350.18, 'FPReg_2': 350.19, 'FPReg_3': 350.19, 'FPMul_0': 350.18, 'FPMul_1': 350.18, 'FPMap_0': 350.15, 'FPMap_1': 350.15, 'IntMap': 350.2, 'IntQ': 350.21, 'IntReg_0': 350.23, 'IntReg_1': 350.23, 'IntExec': 350.19, 'FPQ': 350.19, 'LdStQ': 350.25, 'ITB_0': 350.19, 'ITB_1': 350.2}
+Max Temperature percent error: 0.45%
+Max Temperature objective error: 1.6000000000000227
+Avg Temperature percent error: 0.10%
+Avg Temperature objective error: 0.3586666666666929
+Program: floyd-warshall
+Cycle error 2361.33%
+Int error 206.47%
+Float error 100.00%
+Instr error 967.87%
+Rel Cycle error 51106301999
+Rel Int error 7362228011.00
+Rel Float error -331276883.00
+Rel Instr error 23531637481.00
+Gem5 final heat:
+{'L2_left': 348.4, 'L2': 348.37, 'L2_right': 348.41, 'Icache': 348.44, 'Dcache': 348.56, 'Bpred_0': 348.43, 'Bpred_1': 348.43, 'Bpred_2': 348.47, 'DTB_0': 348.58, 'DTB_1': 348.57, 'DTB_2': 348.55, 'FPAdd_0': 348.46, 'FPAdd_1': 348.48, 'FPReg_0': 348.47, 'FPReg_1': 348.47, 'FPReg_2': 348.5, 'FPReg_3': 348.51, 'FPMul_0': 348.46, 'FPMul_1': 348.53, 'FPMap_0': 348.44, 'FPMap_1': 348.52, 'IntMap': 349.23, 'IntQ': 348.78, 'IntReg_0': 348.64, 'IntReg_1': 348.61, 'IntExec': 348.5, 'FPQ': 348.56, 'LdStQ': 348.88, 'ITB_0': 348.64, 'ITB_1': 348.63}
+Our final heat:
+{'L2_left': 330.72, 'L2': 330.69, 'L2_right': 330.72, 'Icache': 330.73, 'Dcache': 330.78, 'Bpred_0': 330.72, 'Bpred_1': 330.72, 'Bpred_2': 330.73, 'DTB_0': 330.78, 'DTB_1': 330.78, 'DTB_2': 330.77, 'FPAdd_0': 330.75, 'FPAdd_1': 330.75, 'FPReg_0': 330.75, 'FPReg_1': 330.75, 'FPReg_2': 330.75, 'FPReg_3': 330.76, 'FPMul_0': 330.74, 'FPMul_1': 330.75, 'FPMap_0': 330.71, 'FPMap_1': 330.72, 'IntMap': 330.82, 'IntQ': 330.81, 'IntReg_0': 330.82, 'IntReg_1': 330.81, 'IntExec': 330.76, 'FPQ': 330.77, 'LdStQ': 330.86, 'ITB_0': 330.8, 'ITB_1': 330.8}
+Max Temperature percent error: 5.26%
+Max Temperature objective error: 18.370000000000005
+Avg Temperature percent error: 5.10%
+Avg Temperature objective error: 17.79000000000002
+Program: gemm
+Cycle error 83.33%
+Int error 68.72%
+Float error 100.00%
+Instr error 50.45%
+Rel Cycle error 3386376666
+Rel Int error -4337307603.00
+Rel Float error -6702802613.00
+Rel Instr error -2197296764.00
+Gem5 final heat:
+{'L2_left': 346.92, 'L2': 346.88, 'L2_right': 346.92, 'Icache': 346.96, 'Dcache': 347.07, 'Bpred_0': 346.98, 'Bpred_1': 346.99, 'Bpred_2': 347.03, 'DTB_0': 347.13, 'DTB_1': 347.11, 'DTB_2': 347.07, 'FPAdd_0': 347.09, 'FPAdd_1': 347.12, 'FPReg_0': 347.13, 'FPReg_1': 347.15, 'FPReg_2': 347.17, 'FPReg_3': 347.19, 'FPMul_0': 347.1, 'FPMul_1': 347.17, 'FPMap_0': 347.13, 'FPMap_1': 347.21, 'IntMap': 347.71, 'IntQ': 347.38, 'IntReg_0': 347.12, 'IntReg_1': 347.07, 'IntExec': 347.03, 'FPQ': 347.29, 'LdStQ': 347.85, 'ITB_0': 347.27, 'ITB_1': 347.25}
+Our final heat:
+{'L2_left': 344.46, 'L2': 344.44, 'L2_right': 344.46, 'Icache': 344.46, 'Dcache': 344.49, 'Bpred_0': 344.46, 'Bpred_1': 344.46, 'Bpred_2': 344.46, 'DTB_0': 344.49, 'DTB_1': 344.49, 'DTB_2': 344.49, 'FPAdd_0': 344.48, 'FPAdd_1': 344.48, 'FPReg_0': 344.48, 'FPReg_1': 344.48, 'FPReg_2': 344.48, 'FPReg_3': 344.49, 'FPMul_0': 344.47, 'FPMul_1': 344.48, 'FPMap_0': 344.44, 'FPMap_1': 344.45, 'IntMap': 344.51, 'IntQ': 344.51, 'IntReg_0': 344.52, 'IntReg_1': 344.52, 'IntExec': 344.49, 'FPQ': 344.49, 'LdStQ': 344.57, 'ITB_0': 344.51, 'ITB_1': 344.51}
+Max Temperature percent error: 0.94%
+Max Temperature objective error: 3.2800000000000296
+Avg Temperature percent error: 0.77%
+Avg Temperature objective error: 2.6656666666665956
+Program: gemver
+Cycle error 137.94%
+Int error 61.02%
+Float error 100.00%
+Instr error 52.39%
+Rel Cycle error 131148816
+Rel Int error -59389615.00
+Rel Float error -206114528.00
+Rel Instr error -69799368.00
+Gem5 final heat:
+{'L2_left': 350.11, 'L2': 350.08, 'L2_right': 350.11, 'Icache': 350.15, 'Dcache': 350.28, 'Bpred_0': 350.16, 'Bpred_1': 350.18, 'Bpred_2': 350.21, 'DTB_0': 350.32, 'DTB_1': 350.31, 'DTB_2': 350.28, 'FPAdd_0': 350.3, 'FPAdd_1': 350.34, 'FPReg_0': 350.41, 'FPReg_1': 350.42, 'FPReg_2': 350.45, 'FPReg_3': 350.46, 'FPMul_0': 350.35, 'FPMul_1': 350.41, 'FPMap_0': 350.5, 'FPMap_1': 350.57, 'IntMap': 350.97, 'IntQ': 350.58, 'IntReg_0': 350.28, 'IntReg_1': 350.23, 'IntExec': 350.2, 'FPQ': 350.5, 'LdStQ': 350.62, 'ITB_0': 350.41, 'ITB_1': 350.38}
+Our final heat:
+{'L2_left': 350.0, 'L2': 349.97, 'L2_right': 350.0, 'Icache': 349.99, 'Dcache': 350.03, 'Bpred_0': 350.0, 'Bpred_1': 350.0, 'Bpred_2': 350.0, 'DTB_0': 350.02, 'DTB_1': 350.03, 'DTB_2': 350.02, 'FPAdd_0': 350.02, 'FPAdd_1': 350.03, 'FPReg_0': 350.02, 'FPReg_1': 350.03, 'FPReg_2': 350.03, 'FPReg_3': 350.03, 'FPMul_0': 350.02, 'FPMul_1': 350.02, 'FPMap_0': 349.99, 'FPMap_1': 349.99, 'IntMap': 350.05, 'IntQ': 350.05, 'IntReg_0': 350.06, 'IntReg_1': 350.06, 'IntExec': 350.03, 'FPQ': 350.03, 'LdStQ': 350.07, 'ITB_0': 350.04, 'ITB_1': 350.04}
+Max Temperature percent error: 0.26%
+Max Temperature objective error: 0.9000000000000341
+Avg Temperature percent error: 0.09%
+Avg Temperature objective error: 0.3299999999999841
+Program: jacobi-2d
+Cycle error 93.67%
+Int error 60.65%
+Float error 100.00%
+Instr error 50.35%
+Rel Cycle error 9450985939
+Rel Int error -7435178444.00
+Rel Float error -17718013909.00
+Rel Instr error -5110663679.00
+Gem5 final heat:
+{'L2_left': 342.84, 'L2': 342.81, 'L2_right': 342.84, 'Icache': 342.89, 'Dcache': 342.99, 'Bpred_0': 342.9, 'Bpred_1': 342.91, 'Bpred_2': 342.95, 'DTB_0': 343.04, 'DTB_1': 343.02, 'DTB_2': 342.99, 'FPAdd_0': 343.02, 'FPAdd_1': 343.05, 'FPReg_0': 343.08, 'FPReg_1': 343.09, 'FPReg_2': 343.12, 'FPReg_3': 343.13, 'FPMul_0': 343.04, 'FPMul_1': 343.1, 'FPMap_0': 343.09, 'FPMap_1': 343.15, 'IntMap': 343.56, 'IntQ': 343.28, 'IntReg_0': 343.01, 'IntReg_1': 342.98, 'IntExec': 342.95, 'FPQ': 343.22, 'LdStQ': 343.72, 'ITB_0': 343.18, 'ITB_1': 343.15}
+Our final heat:
+{'L2_left': 338.1, 'L2': 338.08, 'L2_right': 338.1, 'Icache': 338.1, 'Dcache': 338.13, 'Bpred_0': 338.1, 'Bpred_1': 338.1, 'Bpred_2': 338.11, 'DTB_0': 338.13, 'DTB_1': 338.13, 'DTB_2': 338.13, 'FPAdd_0': 338.12, 'FPAdd_1': 338.13, 'FPReg_0': 338.12, 'FPReg_1': 338.13, 'FPReg_2': 338.13, 'FPReg_3': 338.13, 'FPMul_0': 338.12, 'FPMul_1': 338.12, 'FPMap_0': 338.08, 'FPMap_1': 338.09, 'IntMap': 338.15, 'IntQ': 338.16, 'IntReg_0': 338.16, 'IntReg_1': 338.16, 'IntExec': 338.14, 'FPQ': 338.14, 'LdStQ': 338.2, 'ITB_0': 338.14, 'ITB_1': 338.14}
+Max Temperature percent error: 1.61%
+Max Temperature objective error: 5.520000000000039
+Avg Temperature percent error: 1.44%
+Avg Temperature objective error: 4.944333333333304
+Program: lu
+Cycle error 2574.28%
+Int error 644.22%
+Float error 100.00%
+Instr error 949.79%
+Rel Cycle error 86739096600
+Rel Int error 19221922561.00
+Rel Float error -3107347979.00
+Rel Instr error 21601528216.00
+Gem5 final heat:
+{'L2_left': 347.43, 'L2': 347.41, 'L2_right': 347.44, 'Icache': 347.46, 'Dcache': 347.53, 'Bpred_0': 347.47, 'Bpred_1': 347.47, 'Bpred_2': 347.5, 'DTB_0': 347.56, 'DTB_1': 347.55, 'DTB_2': 347.52, 'FPAdd_0': 347.55, 'FPAdd_1': 347.57, 'FPReg_0': 347.57, 'FPReg_1': 347.58, 'FPReg_2': 347.59, 'FPReg_3': 347.6, 'FPMul_0': 347.55, 'FPMul_1': 347.59, 'FPMap_0': 347.54, 'FPMap_1': 347.58, 'IntMap': 347.88, 'IntQ': 347.74, 'IntReg_0': 347.57, 'IntReg_1': 347.54, 'IntExec': 347.51, 'FPQ': 347.66, 'LdStQ': 347.92, 'ITB_0': 347.63, 'ITB_1': 347.62}
+Our final heat:
+{'L2_left': 328.79, 'L2': 328.77, 'L2_right': 328.8, 'Icache': 328.79, 'Dcache': 328.82, 'Bpred_0': 328.79, 'Bpred_1': 328.79, 'Bpred_2': 328.8, 'DTB_0': 328.82, 'DTB_1': 328.82, 'DTB_2': 328.82, 'FPAdd_0': 328.82, 'FPAdd_1': 328.82, 'FPReg_0': 328.82, 'FPReg_1': 328.82, 'FPReg_2': 328.83, 'FPReg_3': 328.83, 'FPMul_0': 328.82, 'FPMul_1': 328.82, 'FPMap_0': 328.78, 'FPMap_1': 328.79, 'IntMap': 328.84, 'IntQ': 328.85, 'IntReg_0': 328.86, 'IntReg_1': 328.86, 'IntExec': 328.83, 'FPQ': 328.83, 'LdStQ': 328.91, 'ITB_0': 328.84, 'ITB_1': 328.84}
+Max Temperature percent error: 5.46%
+Max Temperature objective error: 19.00999999999999
+Avg Temperature percent error: 5.39%
+Avg Temperature objective error: 18.750333333333288
+Program: ludcmp
+Cycle error 4405.92%
+Int error 1112.69%
+Float error 100.00%
+Instr error 1618.23%
+Rel Cycle error 86841577299
+Rel Int error 19165355915.00
+Rel Float error -1801144854.00
+Rel Instr error 21245616108.00
+Gem5 final heat:
+{'L2_left': 348.55, 'L2': 348.52, 'L2_right': 348.56, 'Icache': 348.58, 'Dcache': 348.65, 'Bpred_0': 348.59, 'Bpred_1': 348.59, 'Bpred_2': 348.61, 'DTB_0': 348.67, 'DTB_1': 348.66, 'DTB_2': 348.64, 'FPAdd_0': 348.66, 'FPAdd_1': 348.69, 'FPReg_0': 348.69, 'FPReg_1': 348.69, 'FPReg_2': 348.71, 'FPReg_3': 348.72, 'FPMul_0': 348.67, 'FPMul_1': 348.71, 'FPMap_0': 348.66, 'FPMap_1': 348.7, 'IntMap': 348.99, 'IntQ': 348.85, 'IntReg_0': 348.69, 'IntReg_1': 348.66, 'IntExec': 348.63, 'FPQ': 348.78, 'LdStQ': 349.04, 'ITB_0': 348.75, 'ITB_1': 348.73}
+Our final heat:
+{'L2_left': 328.82, 'L2': 328.79, 'L2_right': 328.82, 'Icache': 328.82, 'Dcache': 328.85, 'Bpred_0': 328.82, 'Bpred_1': 328.82, 'Bpred_2': 328.83, 'DTB_0': 328.85, 'DTB_1': 328.85, 'DTB_2': 328.85, 'FPAdd_0': 328.85, 'FPAdd_1': 328.85, 'FPReg_0': 328.85, 'FPReg_1': 328.85, 'FPReg_2': 328.85, 'FPReg_3': 328.85, 'FPMul_0': 328.85, 'FPMul_1': 328.85, 'FPMap_0': 328.81, 'FPMap_1': 328.82, 'IntMap': 328.87, 'IntQ': 328.88, 'IntReg_0': 328.89, 'IntReg_1': 328.89, 'IntExec': 328.86, 'FPQ': 328.86, 'LdStQ': 328.93, 'ITB_0': 328.87, 'ITB_1': 328.87}
+Max Temperature percent error: 5.76%
+Max Temperature objective error: 20.110000000000014
+Avg Temperature percent error: 5.69%
+Avg Temperature objective error: 19.838999999999942
+Program: symm
+Cycle error 34.49%
+Int error 60.74%
+Float error 100.00%
+Instr error 50.05%
+Rel Cycle error -8876227160
+Rel Int error -5118668773.00
+Rel Float error -7870676190.00
+Rel Instr error -3627413860.00
+Gem5 final heat:
+{'L2_left': 335.89, 'L2': 335.87, 'L2_right': 335.89, 'Icache': 335.89, 'Dcache': 335.93, 'Bpred_0': 335.9, 'Bpred_1': 335.9, 'Bpred_2': 335.91, 'DTB_0': 335.93, 'DTB_1': 335.93, 'DTB_2': 335.92, 'FPAdd_0': 335.94, 'FPAdd_1': 335.95, 'FPReg_0': 335.95, 'FPReg_1': 335.95, 'FPReg_2': 335.96, 'FPReg_3': 335.96, 'FPMul_0': 335.94, 'FPMul_1': 335.95, 'FPMap_0': 335.92, 'FPMap_1': 335.93, 'IntMap': 336.06, 'IntQ': 336.03, 'IntReg_0': 335.96, 'IntReg_1': 335.94, 'IntExec': 335.93, 'FPQ': 335.98, 'LdStQ': 336.03, 'ITB_0': 335.96, 'ITB_1': 335.95}
+Our final heat:
+{'L2_left': 339.25, 'L2': 339.23, 'L2_right': 339.25, 'Icache': 339.25, 'Dcache': 339.28, 'Bpred_0': 339.25, 'Bpred_1': 339.25, 'Bpred_2': 339.25, 'DTB_0': 339.27, 'DTB_1': 339.27, 'DTB_2': 339.27, 'FPAdd_0': 339.28, 'FPAdd_1': 339.28, 'FPReg_0': 339.28, 'FPReg_1': 339.28, 'FPReg_2': 339.28, 'FPReg_3': 339.28, 'FPMul_0': 339.27, 'FPMul_1': 339.28, 'FPMap_0': 339.23, 'FPMap_1': 339.24, 'IntMap': 339.29, 'IntQ': 339.3, 'IntReg_0': 339.31, 'IntReg_1': 339.31, 'IntExec': 339.28, 'FPQ': 339.28, 'LdStQ': 339.34, 'ITB_0': 339.29, 'ITB_1': 339.29}
+Max Temperature percent error: 0.98%
+Max Temperature objective error: 3.2799999999999727
+Avg Temperature percent error: 0.99%
+Avg Temperature objective error: 3.3319999999999936
+Program: syrk
+Cycle error 82.98%
+Int error 63.20%
+Float error 100.00%
+Instr error 50.64%
+Rel Cycle error 2467777485
+Rel Int error -2323416617.00
+Rel Float error -4038011607.00
+Rel Instr error -1495527692.00
+Gem5 final heat:
+{'L2_left': 347.76, 'L2': 347.72, 'L2_right': 347.76, 'Icache': 347.8, 'Dcache': 347.9, 'Bpred_0': 347.8, 'Bpred_1': 347.81, 'Bpred_2': 347.85, 'DTB_0': 347.94, 'DTB_1': 347.92, 'DTB_2': 347.89, 'FPAdd_0': 347.89, 'FPAdd_1': 347.92, 'FPReg_0': 347.93, 'FPReg_1': 347.94, 'FPReg_2': 347.96, 'FPReg_3': 347.98, 'FPMul_0': 347.9, 'FPMul_1': 347.96, 'FPMap_0': 347.92, 'FPMap_1': 347.98, 'IntMap': 348.41, 'IntQ': 348.14, 'IntReg_0': 347.92, 'IntReg_1': 347.88, 'IntExec': 347.85, 'FPQ': 348.06, 'LdStQ': 348.46, 'ITB_0': 348.04, 'ITB_1': 348.02}
+Our final heat:
+{'L2_left': 345.85, 'L2': 345.83, 'L2_right': 345.85, 'Icache': 345.85, 'Dcache': 345.89, 'Bpred_0': 345.85, 'Bpred_1': 345.85, 'Bpred_2': 345.86, 'DTB_0': 345.88, 'DTB_1': 345.88, 'DTB_2': 345.88, 'FPAdd_0': 345.88, 'FPAdd_1': 345.88, 'FPReg_0': 345.88, 'FPReg_1': 345.88, 'FPReg_2': 345.88, 'FPReg_3': 345.88, 'FPMul_0': 345.87, 'FPMul_1': 345.87, 'FPMap_0': 345.83, 'FPMap_1': 345.84, 'IntMap': 345.9, 'IntQ': 345.91, 'IntReg_0': 345.92, 'IntReg_1': 345.91, 'IntExec': 345.89, 'FPQ': 345.89, 'LdStQ': 345.97, 'ITB_0': 345.9, 'ITB_1': 345.9}
+Max Temperature percent error: 0.71%
+Max Temperature objective error: 2.4899999999999523
+Avg Temperature percent error: 0.59%
+Avg Temperature objective error: 2.065333333333342
