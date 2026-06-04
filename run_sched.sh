@@ -1,3 +1,5 @@
+#!/usr/bin/env sh
+
 POLY=./PolyBenchC-4.2.1
 OBJ=./objects
 INCLUDES="-I$POLY/utilities"
@@ -24,4 +26,4 @@ SRC=$1
   "$OBJ/$DIRNAME/polybench.ll" \
   -S -o "$OBJ/$DIRNAME/$NAME.merged.ll"
 
-./llvm-build/bin/llc -debug-only=machine-scheduler -misched=thermal "$OBJ/$DIRNAME/$NAME.merged.ll"
+./llvm-build/bin/llc -debug-only=thermal -misched=thermal "$OBJ/$DIRNAME/$NAME.merged.ll"
