@@ -45,6 +45,7 @@ flp_df["bottomy"] = flp_df["bottomy"].astype(float)
 flp_df["area"] = flp_df["width"] * flp_df["height"]
 
 output_queue = []
+all_combined_accuracies = []
 
 for program in PROGRAMS:
     dir = f"./gem5_stats/{program}/stats.txt"
@@ -168,7 +169,27 @@ for program in PROGRAMS:
         f"Avg Temperature objective error: {abs(avg_temp_gem5 - avg_temp_our)}"
     )
 
+    accuracy_stats = {
+        "program": program,
+        "cycle_error_pe": cycle_error,
+        "int_error_pe": int_error,
+        "float_error_pe": float_error,
+        "inst_error_pe": inst_error,
+        "rel_cycle_error": cycle_count - gem5_cycle_count,
+        "rel_int_error": int_instr - gem5_int_instr,
+        "rel_instr_error": float_instr - gem5_float_instr,
+        "max_temp_error_pe": max_temp_error,
+        "rel_max_temp_error": max_temp_gem5 - max_temp_our,
+        "avg_temp_error_pe": avg_temp_error,
+        "rel_avg_temp_error":avg_temp_gem5 - avg_temp_our 
+    }
+    all_combined_accuracies.append(accuracy_stats)
+
 with open("final_accuracy.txt", "w") as f:
     for item in output_queue:
         print(item)
         f.write(f"{item}\n")
+
+df = pd.DataFrame(all_combined_accuracies)
+df = df.set_index("program")
+df.to_excel("./excel/gem5_accuracy.xlsx", index=True)
