@@ -63,15 +63,15 @@ mkdir -p ./hotspot_files/outputs/
 # produced as the set of initial temperatures for the next 'true' run:
 # cp outputs/gcc.steady gcc.init
 # TODO: note terrible relative path
-./../HotSpot/hotspot \
-  -c ../rf_count/hotspot_files/example.config \
-  -init_file "../rf_count/hotspot_files/$init_file" \
-  -f ../rf_count/hotspot_files/ev6.flp \
-  -p ../rf_count/hotspot_files/gcc.ptrace \
-  -materials_file ../rf_count/hotspot_files/example.materials \
+./hotspot/hotspot \
+  -c ./hotspot_files/example.config \
+  -init_file "./hotspot_files/$init_file" \
+  -f ./hotspot_files/ev6.flp \
+  -p ./hotspot_files/gcc.ptrace \
+  -materials_file ./hotspot_files/example.materials \
   -model_type block \
-  -steady_file ../rf_count/hotspot_files/outputs/gcc.steady \
-  -o ../rf_count/hotspot_files/outputs/gcc.ttrace
+  -steady_file ./hotspot_files/outputs/gcc.steady \
+  -o ./hotspot_files/outputs/gcc.ttrace
 
 
 
