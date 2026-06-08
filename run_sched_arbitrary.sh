@@ -10,4 +10,6 @@ mkdir -p ./testcode/objects/
   "$SRC" \
   -o "./testcode/objects/$NAME.ll"
 
-./llvm-build/bin/llc -debug-only=thermal -misched=thermal "./testcode/objects/$NAME.ll"
+./llvm-build/bin/llc -debug-only=thermal -misched=thermal "./testcode/objects/$NAME.ll" -o "./testcode/objects/$NAME.s"
+# also schedule with default for comparison
+./llvm-build/bin/llc "./testcode/objects/$NAME.ll" -o "./testcode/objects/$NAME.default.s"

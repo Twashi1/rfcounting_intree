@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 cmake -G Ninja \
   -S llvm-project/llvm \
   -B llvm-build \
@@ -13,4 +12,7 @@ cmake -G Ninja \
   -DCMAKE_BUILD_TYPE=Release
 
 ninja -C llvm-build
-  
+
+# also build hotspot
+cd ./hotspot/
+make all

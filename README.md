@@ -1,8 +1,6 @@
 # Compile-time analysis for DVS scaling
 
-Repository should be cloned recursively, however note that gem5 validation and HotSpot 6.0 have not been packaged with this repository.
-
-The project does expect HotSpot 6.0 at the path `./../HotSpot/<binary>`
+Repository should be cloned recursively, however note that gem5 validation has not been packaged with this repositoryo.
 
 Required python packages
 - matplotlib
