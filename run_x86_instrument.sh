@@ -30,16 +30,26 @@ SRC=$1
   -S -o "$OBJ/$DIRNAME/$NAME.merged.ll"
 
 # 8. Final llc with machine passes
-# ./llvm-build/bin/llc \
-#   -debug-only=x86-m5-marker\
-#   -filetype=obj \
-#   "$OBJ/$DIRNAME/$NAME.merged.ll" \
-#   -o "$OBJ/$DIRNAME/$NAME.o"
-
 ./llvm-build/bin/llc \
   -debug-only=x86-m5-marker\
-  -stop-after=x86-m5-marker\
+  -filetype=obj \
   "$OBJ/$DIRNAME/$NAME.merged.ll" \
-  -o - 2> dump.mir
+  -o "$OBJ/$DIRNAME/$NAME.o"
+
+echo "Re-running, but outputting asm"
+./llvm-build/bin/llc \
+  -debug-only=x86-m5-marker\
+  -filetype=asm \
+  "$OBJ/$DIRNAME/$NAME.merged.ll" \
+  -o "$OBJ/$DIRNAME/$NAME.asm"
+
+echo "Getting executable"
+./llvm-build/bin/clang -no-pie "$OBJ/$DIRNAME/$NAME.o" -o "$OBJ/$DIRNAME/$NAME.exe"
+
+# ./llvm-build/bin/llc \
+#   -debug-only=x86-m5-marker\
+#   -stop-after=x86-m5-marker\
+#   "$OBJ/$DIRNAME/$NAME.merged.ll" \
+#   -o - 2> dump.mir
 
 # to get executable: clang -no-pie object file -o output executabel
