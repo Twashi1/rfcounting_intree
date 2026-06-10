@@ -29,6 +29,9 @@ SRC=$1
   "$OBJ/$DIRNAME/polybench.ll" \
   -S -o "$OBJ/$DIRNAME/$NAME.merged.ll"
 
+# Copy in the DVS insertion points (assume already generated under stable frequency)
+cp "./insertion_data/${NAME}_DVSInsertionData.csv" "./DVSInsertionData.csv"
+
 # 8. Final llc with machine passes
 ./llvm-build/bin/llc \
   -debug-only=x86-m5-marker\
@@ -45,6 +48,9 @@ echo "Re-running, but outputting asm"
 
 echo "Getting executable"
 ./llvm-build/bin/clang -no-pie "$OBJ/$DIRNAME/$NAME.o" -o "$OBJ/$DIRNAME/$NAME.exe"
+
+# Delete insertion data as cleanup
+rm -f "./DVSInsertionData.csv"
 
 # ./llvm-build/bin/llc \
 #   -debug-only=x86-m5-marker\

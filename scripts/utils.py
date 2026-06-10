@@ -264,6 +264,17 @@ def load_path_blocks(path_blocks: str) -> pd.DataFrame:
     return df
 
 
+def load_path_roots(path_roots: str) -> pd.DataFrame:
+    csv_parts = load_multipart_csv(path_roots)
+    # TODO: we hard-coded this but whatever
+    csv = csv_parts[2]
+    df = pd.DataFrame(csv)
+    int_columns = ["path_index", "block_id", "local_block_id"]
+    df[int_columns] = df[int_columns].astype(int)
+
+    return df
+
+
 def load_temperature_diff_stats(temp_diff: str) -> pd.DataFrame:
     # Should be single-part csv so can just use pandas
     df = pd.read_csv(temp_diff)

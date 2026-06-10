@@ -211,3 +211,87 @@ AverageFreq: 3.00
 MaxFreq: 3.00
 AverageTemp: 56.42
 MaxTemp: 79.42
+Test name: gemm
+Energy@Constant: -21.8802%
+EDP@Constant: -21.8802%
+IPS@Conservative: -0.0000%
+EDP@ETCValue: 2.414531
+IPS@ETCValue: 869104202.350756
+EDP@BaseValue: 3.090804
+IPS@BaseValue: 869104203.054184
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 70.25
+MaxTemp: 83.35
+Test name: gemm
+Energy@Constant: -21.7477%
+EDP@Constant: -21.7477%
+IPS@Conservative: 0.0010%
+EDP@ETCValue: 0.000000
+IPS@ETCValue: 862867270.651252
+EDP@BaseValue: 0.000000
+IPS@BaseValue: 862858234.068763
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 77.20
+MaxTemp: 77.28
+Test name: gemm
+Energy@Constant: -21.8802%
+EDP@Constant: -21.8802%
+IPS@Conservative: -0.0000%
+EDP@ETCValue: 2.414531
+IPS@ETCValue: 869104202.350756
+EDP@BaseValue: 3.090804
+IPS@BaseValue: 869104203.054184
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 70.25
+MaxTemp: 83.35
+Test name: gemm
+Energy@Constant: -21.8802%
+EDP@Constant: -21.8802%
+IPS@Conservative: -0.0000%
+EDP@ETCValue: 2.414531
+IPS@ETCValue: 869104202.350756
+EDP@BaseValue: 3.090804
+IPS@BaseValue: 869104203.054184
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 70.25
+MaxTemp: 83.35
+Test name: gemm
+Energy@Constant: -21.8802%
+EDP@Constant: -21.8802%
+IPS@Conservative: -0.0000%
+EDP@ETCValue: 2.414531
+IPS@ETCValue: 869104202.350756
+EDP@BaseValue: 3.090804
+IPS@BaseValue: 869104203.054184
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 70.25
+MaxTemp: 83.35
+Test name: gemm
+Energy@Constant: -21.8802%
+EDP@Constant: -21.8802%
+IPS@Conservative: -0.0000%
+EDP@ETCValue: 2.414531
+IPS@ETCValue: 869104202.350756
+EDP@BaseValue: 3.090804
+IPS@BaseValue: 869104203.054184
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 70.25
+MaxTemp: 83.35
+Test name: gemm
+Energy@Constant: -21.8802%
+EDP@Constant: -21.8802%
+IPS@Conservative: -0.0000%
+EDP@ETCValue: 2.414531
+IPS@ETCValue: 869104202.350756
+EDP@BaseValue: 3.090804
+IPS@BaseValue: 869104203.054184
+AverageFreq: 3.00
+MaxFreq: 3.00
+AverageTemp: 70.25
+MaxTemp: 83.35

@@ -44,5 +44,9 @@ sudo python3 ./scripts/calc_energy_efficiency.py --stats="./stats/${test_name}_p
 # Calculate temperature difference
 sudo python3 ./scripts/temp_difference.py --etc_heat="./block_heats/${test_name}_ProgramHeat.csv" --baseline_heat="./block_heats/${test_name}_Baseline_ProgramHeat.csv" --out_prefix="./block_heats/${test_name}"
 
+# Move insertion data so that the pass won't pick it up and attempt to insert the marker instructions (unless desired)
+sudo mkdir -p "./insertion_data/"
+sudo mv DVSInsertionData.csv "./insertion_data/${test_name}_DVSInsertionData.csv"
+
 # Plot whole-program stats and create unified data
 # sudo python3 ./scripts/plot_stats.py

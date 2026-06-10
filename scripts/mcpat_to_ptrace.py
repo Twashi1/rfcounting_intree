@@ -612,6 +612,22 @@ def output_vf_data(vf_file_csv: str, vf_pairs: dict):
     df.to_csv(vf_file_csv, index=False)
 
 
+def output_dvs_insert_data(vf_dvs_insert_csv: str, vf_pairs: dict, voltage_levels: list):
+    utils.info(f"Writing DVS insertion data to: {vf_dvs_insert_csv}")
+
+    path_roots_df = utils.load_path_roots("PathRoots.csv")
+
+    df = pd.DataFrame.from_dict(vf_pairs, orient="index")
+    df.index.name = "block_id"
+    df = df.reset_index()
+
+    df = df.merge(path_roots_df, on="block_id", how="right")
+    df["voltage_level"] = df["voltage"].apply(lambda voltage: utils.get_voltage_index(voltage_levels, voltage))
+    df = df[["function_name", "local_block_id", "voltage_level"]]
+
+    df.to_csv(vf_dvs_insert_csv, index=False)
+
+
 def output_heat_data(heat_file_csv: str, heat_data: dict):
     utils.info(f"Writing heat data to: {heat_file_csv}")
 
@@ -844,6 +860,7 @@ def main():
 
     output_heat_data("HeatData.csv", all_block_heats)
     output_vf_data("VoltageFrequency.csv", vf_pairs)
+    output_dvs_insert_data("DVSInsertionData.csv", vf_pairs, standard_voltages)
 
     if bool(args.baseline_calculation):
         utils.info("Running baseline calculation")
