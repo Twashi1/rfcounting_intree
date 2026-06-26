@@ -562,7 +562,7 @@ def tei_select_voltage(
         "Couldn't select sufficient voltage to support frequency under temperature constraints"
     )
 
-    return None 
+    return None
 
 
 def tei_select_vf_pairs(
@@ -1103,6 +1103,7 @@ def mcpat_to_hotspot_units(
     )
     intq_power = get_static_dynamic_power(unit_stats, ["Instruction Window"])
     int_rf_power = get_static_dynamic_power(unit_stats, ["Integer RF"])
+    # TODO: might need to multiply by 4
     int_alu_power = get_static_dynamic_power(unit_stats, ["Integer ALU"])
     fpq_power = get_static_dynamic_power(unit_stats, ["FP Instruction Window"])
     lsq_power = get_static_dynamic_power(unit_stats, ["LoadQ", "StoreQ"])
