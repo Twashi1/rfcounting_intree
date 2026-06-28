@@ -332,14 +332,14 @@ def write_out_floorplan(filename: str, flp: dict, original: dict):
             y = value["y"]
             w = value["w"]
             h = value["h"]
-            f.write(f"{name}\t{x:.8f}\t{y:.8f}\t{w:.8f}\t{h:.8f}\n")
+            f.write(f"{name}\t{w:.8f}\t{h:.8f}\t{x:.8f}\t{y:.8f}\n")
 
 
 def main():
     units = parse_floorplan("./hotspot_files/ev6.flp")
     # draw_all_units(units)
     flp = floorplan_for_program()
-    write_out_floorplan("out_flp.flp", flp, units)
+    write_out_floorplan("./hotspot_files/out_flp.flp", flp, units)
 
 
 if __name__ == "__main__":

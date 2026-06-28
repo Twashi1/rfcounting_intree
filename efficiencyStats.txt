@@ -29,8 +29,8 @@ EDP@BaseValue: 3.090804
 IPS@BaseValue: 869104203.054184
 AverageFreq: 3.00
 MaxFreq: 3.00
-AverageTemp: 70.25
-MaxTemp: 83.35
+AverageTemp: 73.20
+MaxTemp: 80.29
 Test name: symm
 Energy@Constant: -21.7090%
 EDP@Constant: -21.7090%
@@ -41,8 +41,8 @@ EDP@BaseValue: 14.971971
 IPS@BaseValue: 644358036.599659
 AverageFreq: 3.00
 MaxFreq: 3.00
-AverageTemp: 65.34
-MaxTemp: 80.66
+AverageTemp: 68.18
+MaxTemp: 80.51
 Test name: syrk
 Energy@Constant: -21.8729%
 EDP@Constant: -21.8729%
@@ -53,8 +53,8 @@ EDP@BaseValue: 1.623394
 IPS@BaseValue: 803700080.780380
 AverageFreq: 3.00
 MaxFreq: 3.00
-AverageTemp: 71.54
-MaxTemp: 81.45
+AverageTemp: 74.39
+MaxTemp: 80.23
 Test name: gemver
 Energy@Constant: -27.5811%
 EDP@Constant: -27.5811%
@@ -65,32 +65,32 @@ EDP@BaseValue: 0.000974
 IPS@BaseValue: 895350021.656970
 AverageFreq: 3.00
 MaxFreq: 3.00
-AverageTemp: 79.04
-MaxTemp: 81.45
+AverageTemp: 77.67
+MaxTemp: 80.23
 Test name: 2mm
-Energy@Constant: -14.1656%
-EDP@Constant: -14.1656%
+Energy@Constant: -24.0510%
+EDP@Constant: -24.0510%
 IPS@Conservative: -24.1081%
-EDP@ETCValue: 0.000215
+EDP@ETCValue: 0.000190
 IPS@ETCValue: 766677272.464392
 EDP@BaseValue: 0.000251
 IPS@BaseValue: 1010223342.015602
 AverageFreq: 3.00
 MaxFreq: 3.00
-AverageTemp: 76.67
-MaxTemp: 81.45
+AverageTemp: 76.92
+MaxTemp: 80.23
 Test name: 3mm
-Energy@Constant: -17.4015%
-EDP@Constant: -17.4015%
+Energy@Constant: -24.9210%
+EDP@Constant: -24.9210%
 IPS@Conservative: -21.9065%
-EDP@ETCValue: 0.000206
+EDP@ETCValue: 0.000187
 IPS@ETCValue: 783643372.801394
 EDP@BaseValue: 0.000250
 IPS@BaseValue: 1003468562.420399
 AverageFreq: 3.00
 MaxFreq: 3.00
-AverageTemp: 77.36
-MaxTemp: 81.45
+AverageTemp: 77.20
+MaxTemp: 80.23
 Test name: atax
 Energy@Constant: -21.7538%
 EDP@Constant: -21.7538%
@@ -101,8 +101,8 @@ EDP@BaseValue: 0.000845
 IPS@BaseValue: 848747362.580250
 AverageFreq: 3.00
 MaxFreq: 3.00
-AverageTemp: 78.44
-MaxTemp: 79.21
+AverageTemp: 78.14
+MaxTemp: 80.56
 Test name: durbin
 Energy@Constant: -21.7323%
 EDP@Constant: -21.7323%
@@ -113,8 +113,8 @@ EDP@BaseValue: 0.000062
 IPS@BaseValue: 779194221.913755
 AverageFreq: 3.00
 MaxFreq: 3.00
-AverageTemp: 78.79
-MaxTemp: 79.44
+AverageTemp: 78.45
+MaxTemp: 80.54
 Test name: lu
 Energy@Constant: -28.3252%
 EDP@Constant: -28.3252%
@@ -125,20 +125,20 @@ EDP@BaseValue: 445.721012
 IPS@BaseValue: 794903838.416664
 AverageFreq: 3.00
 MaxFreq: 3.00
-AverageTemp: 58.26
-MaxTemp: 79.44
+AverageTemp: 61.17
+MaxTemp: 79.55
 Test name: ludcmp
-Energy@Constant: -28.4914%
-EDP@Constant: -28.4914%
+Energy@Constant: -28.4991%
+EDP@Constant: -28.4991%
 IPS@Conservative: -0.0000%
-EDP@ETCValue: 305.541722
+EDP@ETCValue: 305.508516
 IPS@ETCValue: 762003602.500559
 EDP@BaseValue: 427.279552
 IPS@BaseValue: 762003602.506506
 AverageFreq: 3.00
 MaxFreq: 3.00
-AverageTemp: 58.32
-MaxTemp: 79.21
+AverageTemp: 61.16
+MaxTemp: 80.09
 Test name: correlation
 Energy@Constant: -31.5478%
 EDP@Constant: -31.5478%
@@ -149,8 +149,8 @@ EDP@BaseValue: 7.128760
 IPS@BaseValue: 733180174.736120
 AverageFreq: 3.00
 MaxFreq: 3.00
-AverageTemp: 68.34
-MaxTemp: 83.95
+AverageTemp: 70.57
+MaxTemp: 81.64
 Test name: covariance
 Energy@Constant: -31.5615%
 EDP@Constant: -31.5615%
@@ -161,8 +161,8 @@ EDP@BaseValue: 7.063025
 IPS@BaseValue: 733708178.694450
 AverageFreq: 3.00
 MaxFreq: 3.00
-AverageTemp: 68.25
-MaxTemp: 83.95
+AverageTemp: 70.52
+MaxTemp: 81.64
 Test name: floyd-warshall
 Energy@Constant: -21.7691%
 EDP@Constant: -21.7691%
@@ -173,20 +173,20 @@ EDP@BaseValue: 181.172223
 IPS@BaseValue: 1462134147.345149
 AverageFreq: 3.00
 MaxFreq: 3.00
-AverageTemp: 57.46
-MaxTemp: 78.69
+AverageTemp: 61.32
+MaxTemp: 80.74
 Test name: adi
-Energy@Constant: -21.6772%
-EDP@Constant: -21.6772%
+Energy@Constant: -31.5146%
+EDP@Constant: -31.5146%
 IPS@Conservative: 0.0000%
-EDP@ETCValue: 180.761073
+EDP@ETCValue: 158.057249
 IPS@ETCValue: 577241248.138605
 EDP@BaseValue: 230.789764
 IPS@BaseValue: 577241248.025823
 AverageFreq: 3.00
 MaxFreq: 3.00
-AverageTemp: 56.39
-MaxTemp: 78.40
+AverageTemp: 58.86
+MaxTemp: 80.89
 Test name: jacobi-2d
 Energy@Constant: -21.8268%
 EDP@Constant: -21.8268%
@@ -197,8 +197,8 @@ EDP@BaseValue: 20.662097
 IPS@BaseValue: 773558809.992552
 AverageFreq: 3.00
 MaxFreq: 3.00
-AverageTemp: 64.26
-MaxTemp: 79.44
+AverageTemp: 67.23
+MaxTemp: 79.38
 Test name: seidel-2d
 Energy@Constant: -31.4037%
 EDP@Constant: -31.4037%
@@ -209,89 +209,5 @@ EDP@BaseValue: 233.618078
 IPS@BaseValue: 671650534.691288
 AverageFreq: 3.00
 MaxFreq: 3.00
-AverageTemp: 56.42
-MaxTemp: 79.42
-Test name: gemm
-Energy@Constant: -21.8802%
-EDP@Constant: -21.8802%
-IPS@Conservative: -0.0000%
-EDP@ETCValue: 2.414531
-IPS@ETCValue: 869104202.350756
-EDP@BaseValue: 3.090804
-IPS@BaseValue: 869104203.054184
-AverageFreq: 3.00
-MaxFreq: 3.00
-AverageTemp: 70.25
-MaxTemp: 83.35
-Test name: gemm
-Energy@Constant: -21.7477%
-EDP@Constant: -21.7477%
-IPS@Conservative: 0.0010%
-EDP@ETCValue: 0.000000
-IPS@ETCValue: 862867270.651252
-EDP@BaseValue: 0.000000
-IPS@BaseValue: 862858234.068763
-AverageFreq: 3.00
-MaxFreq: 3.00
-AverageTemp: 77.20
-MaxTemp: 77.28
-Test name: gemm
-Energy@Constant: -21.8802%
-EDP@Constant: -21.8802%
-IPS@Conservative: -0.0000%
-EDP@ETCValue: 2.414531
-IPS@ETCValue: 869104202.350756
-EDP@BaseValue: 3.090804
-IPS@BaseValue: 869104203.054184
-AverageFreq: 3.00
-MaxFreq: 3.00
-AverageTemp: 70.25
-MaxTemp: 83.35
-Test name: gemm
-Energy@Constant: -21.8802%
-EDP@Constant: -21.8802%
-IPS@Conservative: -0.0000%
-EDP@ETCValue: 2.414531
-IPS@ETCValue: 869104202.350756
-EDP@BaseValue: 3.090804
-IPS@BaseValue: 869104203.054184
-AverageFreq: 3.00
-MaxFreq: 3.00
-AverageTemp: 70.25
-MaxTemp: 83.35
-Test name: gemm
-Energy@Constant: -21.8802%
-EDP@Constant: -21.8802%
-IPS@Conservative: -0.0000%
-EDP@ETCValue: 2.414531
-IPS@ETCValue: 869104202.350756
-EDP@BaseValue: 3.090804
-IPS@BaseValue: 869104203.054184
-AverageFreq: 3.00
-MaxFreq: 3.00
-AverageTemp: 70.25
-MaxTemp: 83.35
-Test name: gemm
-Energy@Constant: -21.8802%
-EDP@Constant: -21.8802%
-IPS@Conservative: -0.0000%
-EDP@ETCValue: 2.414531
-IPS@ETCValue: 869104202.350756
-EDP@BaseValue: 3.090804
-IPS@BaseValue: 869104203.054184
-AverageFreq: 3.00
-MaxFreq: 3.00
-AverageTemp: 70.25
-MaxTemp: 83.35
-Test name: gemm
-Energy@Constant: -21.8802%
-EDP@Constant: -21.8802%
-IPS@Conservative: -0.0000%
-EDP@ETCValue: 2.414531
-IPS@ETCValue: 869104202.350756
-EDP@BaseValue: 3.090804
-IPS@BaseValue: 869104203.054184
-AverageFreq: 3.00
-MaxFreq: 3.00
-AverageTemp: 70.25
-MaxTemp: 83.35
+AverageTemp: 58.97
+MaxTemp: 79.53

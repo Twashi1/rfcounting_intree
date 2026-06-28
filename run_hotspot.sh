@@ -62,11 +62,10 @@ mkdir -p ./hotspot_files/outputs/
 # temperatures are.  So, we now use the steady state temperatures
 # produced as the set of initial temperatures for the next 'true' run:
 # cp outputs/gcc.steady gcc.init
-# TODO: note terrible relative path
 ./hotspot/hotspot \
   -c ./hotspot_files/example.config \
   -init_file "./hotspot_files/$init_file" \
-  -f ./hotspot_files/ev6.flp \
+  -f ./hotspot_files/out_flp.flp \
   -p ./hotspot_files/gcc.ptrace \
   -materials_file ./hotspot_files/example.materials \
   -model_type block \

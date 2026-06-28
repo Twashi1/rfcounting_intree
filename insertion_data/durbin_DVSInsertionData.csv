@@ -1,0 +1,16 @@
+function_name,local_block_id,voltage_level
+main,1,2
+main,2,2
+main,3,2
+main,4,2
+main,5,2
+kernel_durbin,0,1
+kernel_durbin,1,2
+kernel_durbin,16,0
+print_array,0,0
+print_array,1,0
+print_array,4,0
+polybench_alloc_data,0,0
+polybench_alloc_data,1,0
+polybench_alloc_data,2,0
+polybench_alloc_data,3,0

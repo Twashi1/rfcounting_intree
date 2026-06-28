@@ -12,7 +12,7 @@ vars=(
 #"./PolyBenchC-4.2.1/linear-algebra/solvers/cholesky/cholesky.c"
 "./PolyBenchC-4.2.1/linear-algebra/solvers/durbin/durbin.c"
 "./PolyBenchC-4.2.1/linear-algebra/solvers/lu/lu.c"
-"./PolyBenchC-4.2.1/linear-algebra/solvers/ludcmp/ludcmp.c"
+"./PolyBenchC-4.2.1/linear-algebra/solvers/ludcmp/ludcmp.c" # TODO: seems like we get an error attempting to run this binary?
 "./PolyBenchC-4.2.1/datamining/correlation/correlation.c"
 "./PolyBenchC-4.2.1/datamining/covariance/covariance.c"
 #"./PolyBenchC-4.2.1/medley/deriche/deriche.c"

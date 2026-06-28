@@ -1,0 +1,17 @@
+function_name,local_block_id,voltage_level
+main,1,1
+main,4,1
+main,5,1
+main,6,5
+main,7,1
+kernel_adi,0,1
+kernel_adi,1,1
+kernel_adi,20,0
+print_array,0,0
+print_array,1,0
+print_array,6,0
+polybench_alloc_data,0,0
+xmalloc,0,0
+xmalloc,1,0
+xmalloc,2,0
+xmalloc,3,0
