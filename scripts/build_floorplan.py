@@ -117,7 +117,7 @@ def draw_all_units(units: dict):
     plt.show()
 
 
-def floorplan_for_program():
+def floorplan_for_program(old_flp: dict):
     # TODO: we've manually laoded these values, based on 14nm in config
     # Map from area of McPAT unit to area of HotSpot unit
     # Units are mm^2
@@ -188,12 +188,23 @@ def floorplan_for_program():
     # Convert to metres squared (1e-3 * 1e-3)
     hotspot_units_wh_metres = {}
 
+    old_flp_lower_names = {}
+    for unit_name, value in old_flp.items():
+        old_flp_lower_names[unit_name.lower()] = value
+
     for unit_name, value in hotspot_units.items():
+        # Get aspect ratio from old_flp
+        aspect_ratio = (
+            old_flp_lower_names[unit_name]["w"] / old_flp_lower_names[unit_name]["h"]
+        )
         metres_squared = value * 1e-6
         length = metres_squared**0.5
+        width = length * aspect_ratio
+        height = length / aspect_ratio
+
         hotspot_units_wh_metres[unit_name] = {
-            "w": length,
-            "h": length,
+            "w": width,
+            "h": height,
             "x": 0.0,
             "y": 0.0,
         }
@@ -338,7 +349,7 @@ def write_out_floorplan(filename: str, flp: dict, original: dict):
 def main():
     units = parse_floorplan("./hotspot_files/ev6.flp")
     # draw_all_units(units)
-    flp = floorplan_for_program()
+    flp = floorplan_for_program(units)
     write_out_floorplan("./hotspot_files/out_flp.flp", flp, units)
 
 
