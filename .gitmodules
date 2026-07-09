@@ -4,6 +4,7 @@
 [submodule "llvm-project"]
 	path = llvm-project
 	url = https://github.com/Twashi1/llvm-project-analysis
+	branch = analysis-pass
 [submodule "hotspot"]
 	path = hotspot
 	url = https://github.com/uvahotspot/HotSpot
