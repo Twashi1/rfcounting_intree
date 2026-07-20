@@ -2118,7 +2118,9 @@ def load_arbitrary_stat_file(
         else:
             stats = all_stats[path_index]
     # Assuming gem5 output
-    elif filename == "stats.txt":
+    elif filename == "stats.txt" or (
+        filename.startswith("stats") and filename.endswith(".txt")
+    ):
         stats = get_stats_df_gem5_run(path)
     elif "_STD.csv" in filename:
         # TODO: warn on this path? or just check this path is valid
