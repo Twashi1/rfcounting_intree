@@ -8,5 +8,3 @@
 [submodule "hotspot"]
 	path = hotspot
 	url = https://github.com/uvahotspot/HotSpot
-[llvm-project "llvm-project"]
-	analysis-pass = main
