@@ -2178,3 +2178,32 @@ def create_unified_program_stats(
     df.to_csv(output_csv, index=False)
 
     return df
+
+
+def read_new_efficiency_stats(file: str) -> pd.DataFrame:
+    df = pd.DataFrame()
+
+    with open(file, "r") as f:
+        # We expect the lines in a very strict format to make it easier
+        for line in f.readlines():
+            name, value = line.split(":")
+            value = value.rstrip()
+
+            mappedName = {
+                "ProgramName": "Program",
+                "EDP%Improve": "EDPImprovement",
+                "IPS%Improve": "IPSImprovement",
+                "Energy%Improve": "EnergyImprovement",
+                "PeakTempETC": "PeakTempETC",
+                "PeakTempBase": "PeakTempBase",
+                "AvgTempETC": "AvgTempETC",
+                "AvgTempBase": "AvgTempBase",
+                "TotalCycles": "TotalCycles",
+            }[name]
+
+            if mappedName != "Program":
+                df[mappedName] = [float(value)]
+            else:
+                df[mappedName] = [value]
+
+    return df

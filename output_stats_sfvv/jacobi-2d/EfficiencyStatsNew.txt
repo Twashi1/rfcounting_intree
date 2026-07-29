@@ -1,0 +1,9 @@
+ProgramName:jacobi-2d
+EDP%Improve:39.3914
+IPS%Improve:0
+Energy%Improve:39.3914
+PeakTempETC:353.22
+PeakTempBase:355.32
+AvgTempETC:338.827
+AvgTempBase:338.74
+TotalCycles:1.95406e+10

@@ -1,0 +1,9 @@
+ProgramName:correlation
+EDP%Improve:42.3779
+IPS%Improve:0.00809252
+Energy%Improve:42.4858
+PeakTempETC:356.64
+PeakTempBase:357.4
+AvgTempETC:345.643
+AvgTempBase:343.689
+TotalCycles:1.1426e+10

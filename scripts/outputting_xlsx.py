@@ -2,6 +2,24 @@ import pandas as pd
 import utils
 import os
 
+benchmarks = [
+    "2mm",
+    "3mm",
+    "adi",
+    "atax",
+    "covariance",
+    "durbin",
+    "floyd-warshall",
+    "gemm",
+    "gemver",
+    "jacobi-2d",
+    "lu",
+    "ludcmp",
+    "symm",
+    "syrk",
+]
+
+
 def generate_gem5_sheet():
     gem5_runs = [
         "2mm",
@@ -17,7 +35,7 @@ def generate_gem5_sheet():
         "lu",
         "ludcmp",
         "symm",
-        "syrk"
+        "syrk",
     ]
 
     os.makedirs("./excel", exist_ok=True)
@@ -41,6 +59,7 @@ def generate_gem5_sheet():
     output_path = f"./excel/gem5_runs.xlsx"
     df.to_excel(output_path, index=True)
 
+
 def generate_efficiency_stats():
     res = utils.load_efficiency_stats("efficiencyStats.txt")
 
@@ -56,9 +75,38 @@ def generate_efficiency_stats():
     output_path = f"./excel/efficiency_stats.xlsx"
     df.to_excel(output_path, index=True)
 
+
+def generate_xlsx(root_folder: str):
+    for benchmark in benchmarks:
+        res = utils.read_new_efficiency_stats(
+            f"./{root_folder}/{benchmark}/EfficiencyStatsNew.txt"
+        )
+        res["benchmark"] = benchmark
+        res.set_index("benchmark")
+
+        os.makedirs(f"./excel/{root_folder}/{benchmark}/", exist_ok=True)
+
+        res.to_excel(
+            f"./excel/{root_folder}/{benchmark}/EfficiencyStats.xlsx", index=True
+        )
+
+        dvsInsertData = pd.read_csv(f"./{root_folder}/{benchmark}/DVSInsertionData.csv")
+        dvsInsertData.to_excel(
+            f"./excel/{root_folder}/{benchmark}/DVSInsertionData.xlsx", index=True
+        )
+
+        subgraphStats = pd.read_csv(f"./{root_folder}/{benchmark}/PerSubgraphStats.csv")
+        subgraphStats.to_excel(
+            f"./excel/{root_folder}/{benchmark}/PerSubgraphStats.xlsx", index=True
+        )
+
+
 def main():
     generate_gem5_sheet()
     generate_efficiency_stats()
 
+
 if __name__ == "__main__":
-    main()
+    # main()
+    generate_xlsx("output_stats_sfvv")
+    generate_xlsx("output_stats_vfvv")

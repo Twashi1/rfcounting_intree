@@ -1,0 +1,9 @@
+ProgramName:ludcmp
+EDP%Improve:-52.4796
+IPS%Improve:-4.81295
+Energy%Improve:-2.38932
+PeakTempETC:356.3
+PeakTempBase:357.29
+AvgTempETC:332.99
+AvgTempBase:331.573
+TotalCycles:5.96372e+10

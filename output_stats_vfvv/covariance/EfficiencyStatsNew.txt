@@ -1,0 +1,9 @@
+ProgramName:covariance
+EDP%Improve:53.9713
+IPS%Improve:20
+Energy%Improve:44.7656
+PeakTempETC:355.51
+PeakTempBase:357.83
+AvgTempETC:345.426
+AvgTempBase:344.471
+TotalCycles:1.13934e+10

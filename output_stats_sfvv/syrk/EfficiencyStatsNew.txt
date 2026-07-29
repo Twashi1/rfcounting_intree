@@ -1,0 +1,9 @@
+ProgramName:syrk
+EDP%Improve:40.6879
+IPS%Improve:0
+Energy%Improve:40.6879
+PeakTempETC:354.49
+PeakTempBase:357.24
+AvgTempETC:346.809
+AvgTempBase:346.869
+TotalCycles:5.44168e+09

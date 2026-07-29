@@ -1,0 +1,9 @@
+ProgramName:seidel-2d
+EDP%Improve:39.3783
+IPS%Improve:0
+Energy%Improve:39.3783
+PeakTempETC:353.39
+PeakTempBase:355.58
+AvgTempETC:331.072
+AvgTempBase:331.419
+TotalCycles:6.69256e+10

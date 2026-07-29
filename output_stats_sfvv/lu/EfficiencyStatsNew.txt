@@ -1,0 +1,9 @@
+ProgramName:lu
+EDP%Improve:40.4039
+IPS%Improve:0
+Energy%Improve:40.4039
+PeakTempETC:353.35
+PeakTempBase:355.51
+AvgTempETC:332.847
+AvgTempBase:333.098
+TotalCycles:9.01085e+10
