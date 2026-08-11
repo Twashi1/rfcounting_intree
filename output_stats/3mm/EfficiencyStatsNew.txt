@@ -1,0 +1,9 @@
+ProgramName:3mm
+EDP%Improve:42.5422
+IPS%Improve:0
+Energy%Improve:42.5422
+PeakTempETC:356.66
+PeakTempBase:359.84
+AvgTempETC:339.448
+AvgTempBase:339.464
+TotalCycles:3.11256e+10

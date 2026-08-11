@@ -1,0 +1,9 @@
+ProgramName:symm
+EDP%Improve:43.1293
+IPS%Improve:0
+Energy%Improve:43.1293
+PeakTempETC:354.57
+PeakTempBase:357.35
+AvgTempETC:340.008
+AvgTempBase:339.981
+TotalCycles:1.68581e+10

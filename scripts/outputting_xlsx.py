@@ -101,12 +101,58 @@ def generate_xlsx(root_folder: str):
         )
 
 
-def main():
-    generate_gem5_sheet()
-    generate_efficiency_stats()
+def generate_combined_xlsx():
+    variants = ["output_stats_sfvv", "output_stats_vfvv"]
+
+    all_efficiency_stats = []
+    all_subgraph_stats = []
+
+    for variant in variants:
+        variant_name = variant.replace("output_stats_", "")  # sfvv / vfvv
+
+        for benchmark in benchmarks:
+            # -----------------------
+            # Efficiency stats
+            # -----------------------
+            eff = utils.read_new_efficiency_stats(
+                f"./{variant}/{benchmark}/EfficiencyStatsNew.txt"
+            )
+
+            eff["benchmark"] = benchmark
+            eff["variant"] = variant_name
+
+            all_efficiency_stats.append(eff)
+
+            # -----------------------
+            # Per-subgraph stats
+            # -----------------------
+            subgraph = pd.read_csv(f"./{variant}/{benchmark}/PerSubgraphStats.csv")
+
+            subgraph["benchmark"] = benchmark
+            subgraph["variant"] = variant_name
+
+            all_subgraph_stats.append(subgraph)
+
+    os.makedirs("./excel", exist_ok=True)
+
+    combined_efficiency = pd.concat(all_efficiency_stats, ignore_index=True)
+    combined_subgraph = pd.concat(all_subgraph_stats, ignore_index=True)
+
+    combined_efficiency.to_excel("./excel/CombinedEfficiencyStats.xlsx")
+
+    combined_subgraph.to_excel(
+        "./excel/CombinedPerSubgraphStats.xlsx",
+        index=False,
+    )
+
+
+# def main():
+#     generate_gem5_sheet()
+#     generate_efficiency_stats()
 
 
 if __name__ == "__main__":
     # main()
     generate_xlsx("output_stats_sfvv")
     generate_xlsx("output_stats_vfvv")
+    generate_combined_xlsx()

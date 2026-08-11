@@ -196,7 +196,7 @@ def calculate_data():
 
 
 def analysis():
-    df = pd.read_pickle("temperatures.pkl")
+    df = pd.read_pickle("temperatures1.pkl")
 
     sns.set_theme(style="whitegrid")
 
@@ -216,7 +216,7 @@ def analysis():
 
 
 def analysis_with_bar():
-    df = pd.read_pickle("temperatures.pkl")
+    df = pd.read_pickle("temperatures1.pkl")
 
     sns.set_theme(style="whitegrid")
 
@@ -260,5 +260,5 @@ def analysis_with_bar():
 
 if __name__ == "__main__":
     # clear_cached()
-    calculate_data()
+    # calculate_data()
     analysis_with_bar()

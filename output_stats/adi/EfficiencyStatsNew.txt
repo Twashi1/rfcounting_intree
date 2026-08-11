@@ -1,0 +1,9 @@
+ProgramName:adi
+EDP%Improve:39.0747
+IPS%Improve:0
+Energy%Improve:39.0747
+PeakTempETC:353.41
+PeakTempBase:355.65
+AvgTempETC:330.949
+AvgTempBase:331.236
+TotalCycles:6.73987e+10
