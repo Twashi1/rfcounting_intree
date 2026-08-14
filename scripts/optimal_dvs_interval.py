@@ -19,7 +19,7 @@ def clear_cached():
         shutil.rmtree(mcoutputs)
 
 
-def calculate_data():
+def calculate_data(instr_threshold: int, run_name: str):
     stat_files = "./gem5_stats/gemm_10k_instr/"
 
     config = utils.load_cfg("./scripts/configs.cfg")
@@ -48,7 +48,16 @@ def calculate_data():
     instr_counts = []
     selected_voltages = []
     selected_frequencies = []
+    times_selected_new_config = []
     last_temperature = 350  # default to 77 celsius
+
+    edp_selection_instructions = instr_threshold
+    current_instructions = 0
+    total_instruction_count = 0
+    last_vf_pair = None
+
+    total_energy = 0.0
+    total_time = 0.0
 
     for i in range(995):
         file_name = stat_files + f"stats_{i:05d}.txt"
@@ -57,6 +66,8 @@ def calculate_data():
         gem5_stats = utils.load_standard_stat_file(f"./stats/gemm_10k_instr_STD.csv")
 
         gem5_stats["block_id"] = i
+
+        current_instructions += gem5_stats[utils.INSTR_COUNT].sum()
 
         vf_pairs = utils.tei_select_vf_pairs(
             config,
@@ -67,11 +78,26 @@ def calculate_data():
             True,
         )
 
+        selected_new_config = True
+
+        if (
+            last_vf_pair is not None
+            and current_instructions < edp_selection_instructions
+        ):
+            vf_pairs = [last_vf_pair]
+            selected_new_config = False
+        else:
+            current_instructions -= edp_selection_instructions
+
         gem5_cycle_count = gem5_stats[utils.BUSY_CYCLES].sum()
+
+        print(f"Cycle count: {gem5_cycle_count}")
 
         best_edp = float("inf")
         best_vf_pair = None
         best_power_trace = None
+        best_energy = None
+        best_time = None
 
         for voltage, frequency in vf_pairs:
             gem5_trace_request = utils.PowerTraceRequestSpec(
@@ -105,11 +131,19 @@ def calculate_data():
                 best_edp = edp
                 best_vf_pair = (voltage, frequency)
                 best_power_trace = gem5_power
+                best_energy = energy
+                best_time = execution_time
 
         assert best_power_trace is not None
         assert best_vf_pair is not None
+        assert best_energy is not None
+        assert best_time is not None
 
         best_voltage, best_frequency = best_vf_pair
+        last_vf_pair = best_vf_pair
+
+        total_time += best_time
+        total_energy += best_energy
 
         selected_voltages.append(best_voltage)
         selected_frequencies.append(best_frequency)
@@ -177,10 +211,17 @@ def calculate_data():
 
         all_temps.append(avg_temp_gem5)
         max_temps.append(max_temp_gem5)
-        # TODO: real instruction count ends up being ~14k, but read from file is even better
-        instr_counts.append(14_000 * i)
+        times_selected_new_config.append(selected_new_config)
+        instr_counts.append(total_instruction_count)
+        total_instruction_count += gem5_stats[utils.INSTR_COUNT].sum()
 
         print("Done!")
+
+    final_edp = total_energy * total_time
+    print(f"Final EDP: {final_edp}")
+
+    with open(f"OptimalDVS_{run_name}.txt", "a") as f:
+        f.write(f"FinalEDP:{final_edp}\n")
 
     df = pd.DataFrame(
         {
@@ -189,34 +230,25 @@ def calculate_data():
             "temperature_weighted_k": area_weighted_no_cache,
             "voltages": selected_voltages,
             "frequencies": selected_frequencies,
+            "selected_new_config": times_selected_new_config,
         }
     )
 
-    df.to_pickle("temperatures1.pkl")
+    df.to_pickle(f"{run_name}.pkl")
 
 
-def analysis():
-    df = pd.read_pickle("temperatures1.pkl")
+def analysis_with_bar(run_name: str):
+    df = pd.read_pickle(f"{run_name}.pkl")
+    print(df["instructions"])
+    print(len(df))
+    df = df[df["selected_new_config"] == True]
+    print(len(df))
 
-    sns.set_theme(style="whitegrid")
+    total_instr_count = df["instructions"].max()
+    total_changes = df["selected_new_config"].sum()
+    print(f"Selection frequency: {total_instr_count / total_changes}")
 
-    ax = sns.lineplot(
-        data=df,
-        x="instructions",
-        y="temperature_weighted_k",
-        marker="o",
-    )
-
-    ax.set_xlabel("Instructions")
-    ax.set_ylabel("Temperature (K)")
-    ax.set_title("Temperature vs. Instructions")
-
-    plt.tight_layout()
-    plt.show()
-
-
-def analysis_with_bar():
-    df = pd.read_pickle("temperatures1.pkl")
+    # TODO: calculate EDP improvement across different runs?
 
     sns.set_theme(style="whitegrid")
 
@@ -260,5 +292,6 @@ def analysis_with_bar():
 
 if __name__ == "__main__":
     # clear_cached()
-    # calculate_data()
-    analysis_with_bar()
+    run_name = "temps_5m_v0"
+    # calculate_data(5_000_000, run_name)
+    analysis_with_bar(run_name)

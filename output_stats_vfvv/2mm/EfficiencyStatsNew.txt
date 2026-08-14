@@ -1,9 +1,9 @@
 ProgramName:2mm
-EDP%Improve:53.8296
-IPS%Improve:20.0354
-Energy%Improve:44.643
+EDP%Improve:53.9247
+IPS%Improve:20
+Energy%Improve:44.7097
 PeakTempETC:357.41
-PeakTempBase:357.24
-AvgTempETC:344.422
-AvgTempBase:343.393
-TotalCycles:2.10841e+10
+PeakTempBase:359.84
+AvgTempETC:342.391
+AvgTempBase:341.179
+TotalCycles:2.11022e+10

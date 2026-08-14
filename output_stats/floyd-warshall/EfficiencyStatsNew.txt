@@ -1,9 +1,0 @@
-ProgramName:floyd-warshall
-EDP%Improve:42.0503
-IPS%Improve:0
-Energy%Improve:42.0503
-PeakTempETC:360.62
-PeakTempBase:371.4
-AvgTempETC:332.508
-AvgTempBase:333.229
-TotalCycles:5.32706e+10

@@ -1,9 +1,9 @@
 ProgramName:gemm
-EDP%Improve:52.2411
-IPS%Improve:20.0531
-Energy%Improve:42.8568
+EDP%Improve:52.7449
+IPS%Improve:20
+Energy%Improve:43.2939
 PeakTempETC:356.29
-PeakTempBase:357.28
+PeakTempBase:358.56
 AvgTempETC:346.162
-AvgTempBase:345.295
-TotalCycles:7.4283e+09
+AvgTempBase:345.32
+TotalCycles:7.45006e+09
