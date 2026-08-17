@@ -2198,6 +2198,8 @@ def read_new_efficiency_stats(file: str) -> pd.DataFrame:
                 "PeakTempBase": "PeakTempBase",
                 "AvgTempETC": "AvgTempETC",
                 "AvgTempBase": "AvgTempBase",
+                "DVSTransitionsETC": "DVSTransitionsETC",
+                "TransitionCostETC": "TransitionCostETC",
                 "TotalCycles": "TotalCycles",
             }[name]
 
