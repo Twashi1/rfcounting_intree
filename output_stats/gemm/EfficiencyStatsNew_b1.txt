@@ -1,0 +1,17 @@
+ProgramName:gemm
+EDP%Improve:44.0746
+IPS%Improve:0
+Energy%Improve:44.0746
+PeakTempETC:354.53
+PeakTempBase:356.96
+AvgTempETC:345.341
+AvgTempBase:345.331
+DVSTransitionsETC:2622.01
+TransitionCostETC:0.000131101
+BaselineEDP0.807995
+BaselineIPS8.69104e+08
+BaselineEnergy0.325364
+EtcEDP0.451874
+EtcIPS8.69104e+08
+EtcEnergy0.181961
+TotalCycles:7.45006e+09

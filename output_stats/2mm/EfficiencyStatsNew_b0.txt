@@ -1,0 +1,17 @@
+ProgramName:2mm
+EDP%Improve:29.8406
+IPS%Improve:0
+Energy%Improve:29.8406
+PeakTempETC:355.3
+PeakTempBase:356.32
+AvgTempETC:340.317
+AvgTempBase:340.343
+DVSTransitionsETC:3124.01
+TransitionCostETC:0.000156201
+BaselineEDP10.0094
+BaselineIPS6.90009e+08
+BaselineEnergy1.28069
+EtcEDP7.02255
+EtcIPS6.90009e+08
+EtcEnergy0.898528
+TotalCycles:2.11022e+10

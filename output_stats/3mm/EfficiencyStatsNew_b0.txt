@@ -1,0 +1,17 @@
+ProgramName:3mm
+EDP%Improve:29.5811
+IPS%Improve:0
+Energy%Improve:29.5811
+PeakTempETC:355.3
+PeakTempBase:356.32
+AvgTempETC:338.645
+AvgTempBase:338.657
+DVSTransitionsETC:3724.51
+TransitionCostETC:0.000186226
+BaselineEDP20.2292
+BaselineIPS7.05279e+08
+BaselineEnergy1.75479
+EtcEDP14.2452
+EtcIPS7.05279e+08
+EtcEnergy1.2357
+TotalCycles:3.11256e+10

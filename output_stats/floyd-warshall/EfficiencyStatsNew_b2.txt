@@ -1,0 +1,17 @@
+ProgramName:floyd-warshall
+EDP%Improve:58.9362
+IPS%Improve:0
+Energy%Improve:58.9362
+PeakTempETC:357.7
+PeakTempBase:374.23
+AvgTempETC:332.823
+AvgTempBase:333.935
+DVSTransitionsETC:3319.02
+TransitionCostETC:0.000165951
+BaselineEDP259.163
+BaselineIPS1.60835e+09
+BaselineEnergy16.0546
+EtcEDP106.422
+EtcIPS1.60835e+09
+EtcEnergy6.59263
+TotalCycles:5.32706e+10

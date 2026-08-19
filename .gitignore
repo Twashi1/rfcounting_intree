@@ -45,3 +45,9 @@ TopoComp.csv
 VoltageFrequency.csv
 VoltageFrequencyBaseline.csv
 VoltageLevels.csv
+
+# Exclude hotspot inputs/outputs
+hotspot_files/
+!hotspot_files/example.config
+!hotspot_files/out_flp.flp
+

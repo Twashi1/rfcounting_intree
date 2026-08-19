@@ -1,0 +1,17 @@
+ProgramName:syrk
+EDP%Improve:45.1856
+IPS%Improve:0
+Energy%Improve:45.1856
+PeakTempETC:353.52
+PeakTempBase:355.76
+AvgTempETC:346.782
+AvgTempBase:346.837
+DVSTransitionsETC:2320.51
+TransitionCostETC:0.000116026
+BaselineEDP0.654332
+BaselineIPS8.037e+08
+BaselineEnergy0.360733
+EtcEDP0.358668
+EtcIPS8.037e+08
+EtcEnergy0.197734
+TotalCycles:5.44168e+09

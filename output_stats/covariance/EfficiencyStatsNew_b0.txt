@@ -1,0 +1,17 @@
+ProgramName:covariance
+EDP%Improve:29.7322
+IPS%Improve:0
+Energy%Improve:29.7322
+PeakTempETC:354.43
+PeakTempBase:355.5
+AvgTempETC:343.9
+AvgTempBase:344.04
+DVSTransitionsETC:3120.01
+TransitionCostETC:0.000156001
+BaselineEDP2.69453
+BaselineIPS6.60338e+08
+BaselineEnergy0.638548
+EtcEDP1.89339
+EtcIPS6.60338e+08
+EtcEnergy0.448694
+TotalCycles:1.13934e+10

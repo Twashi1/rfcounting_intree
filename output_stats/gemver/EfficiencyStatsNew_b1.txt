@@ -1,0 +1,17 @@
+ProgramName:gemver
+EDP%Improve:45.6878
+IPS%Improve:0
+Energy%Improve:45.6878
+PeakTempETC:354.6
+PeakTempBase:357
+AvgTempETC:351.893
+AvgTempBase:352.206
+DVSTransitionsETC:4181.02
+TransitionCostETC:0.000209051
+BaselineEDP0.00196245
+BaselineIPS8.41161e+08
+BaselineEnergy0.0260242
+EtcEDP0.00106585
+EtcIPS8.41161e+08
+EtcEnergy0.0141343
+TotalCycles:2.26227e+08

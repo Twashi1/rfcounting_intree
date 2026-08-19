@@ -1,0 +1,17 @@
+ProgramName:durbin
+EDP%Improve:45.6728
+IPS%Improve:0
+Energy%Improve:45.6728
+PeakTempETC:352.61
+PeakTempBase:354.61
+AvgTempETC:351.177
+AvgTempBase:351.359
+DVSTransitionsETC:1176
+TransitionCostETC:5.88e-05
+BaselineEDP4.39122e-05
+BaselineIPS7.79194e+08
+BaselineEnergy0.00391253
+EtcEDP2.38563e-05
+EtcIPS7.79194e+08
+EtcEnergy0.00212557
+TotalCycles:3.36704e+07

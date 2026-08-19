@@ -1,0 +1,17 @@
+ProgramName:atax
+EDP%Improve:45.7944
+IPS%Improve:0
+Energy%Improve:45.7944
+PeakTempETC:352.6
+PeakTempBase:354.59
+AvgTempETC:351.151
+AvgTempBase:351.328
+DVSTransitionsETC:2130
+TransitionCostETC:0.0001065
+BaselineEDP0.000597223
+BaselineIPS8.48747e+08
+BaselineEnergy0.014345
+EtcEDP0.000323728
+EtcIPS8.48747e+08
+EtcEnergy0.00777581
+TotalCycles:1.24898e+08

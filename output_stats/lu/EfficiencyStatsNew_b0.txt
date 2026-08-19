@@ -1,0 +1,17 @@
+ProgramName:lu
+EDP%Improve:26.9718
+IPS%Improve:0
+Energy%Improve:26.9718
+PeakTempETC:352.26
+PeakTempBase:353.08
+AvgTempETC:332.133
+AvgTempBase:332.223
+DVSTransitionsETC:4522.02
+TransitionCostETC:0.000226101
+BaselineEDP330.607
+BaselineIPS7.15413e+08
+BaselineEnergy9.90627
+EtcEDP241.436
+EtcIPS7.15413e+08
+EtcEnergy7.23437
+TotalCycles:9.01085e+10

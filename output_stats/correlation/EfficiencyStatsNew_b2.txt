@@ -1,0 +1,17 @@
+ProgramName:correlation
+EDP%Improve:60.2697
+IPS%Improve:0
+Energy%Improve:60.2697
+PeakTempETC:355.75
+PeakTempBase:360.26
+AvgTempETC:346.166
+AvgTempBase:346.997
+DVSTransitionsETC:363123
+TransitionCostETC:0.0181561
+BaselineEDP3.74819
+BaselineIPS8.06498e+08
+BaselineEnergy1.0805
+EtcEDP1.48916
+EtcIPS8.06498e+08
+EtcEnergy0.429286
+TotalCycles:1.14475e+10
